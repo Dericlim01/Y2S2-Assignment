@@ -136,8 +136,8 @@ int main() {
     outfile << "title,text,subject,date,t/f\n";
 
     // Process both CSV files, skipping headers in them
-    processCSV("fake.csv", outfile, "fake", true);
-    processCSV("true.csv", outfile, "true", true);
+    processCSV("fake.csv", outfile, "FAKE", true);
+    processCSV("true.csv", outfile, "TRUE", true);
 
     outfile.close(); // Close the output file
     cout << "Cleaning complete: DataCleaned.csv" << endl;
