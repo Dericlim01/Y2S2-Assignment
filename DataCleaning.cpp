@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-
+#include <string>
 using namespace std;
 
 /*
@@ -78,7 +78,86 @@ string readQuotedField(ifstream &infile, string firstPart) {
 }
 
 /**
-Function to process a CSV file, clean the data, and add a new "source" column.
+Function to convert month name to its two-digit number representation.
+Example: "December" becomes "12".
+*/
+string getMonthNumber(const string &month) {
+    // This function uses a series of if-else statements to match the month.
+    if (month == "January")   return "01";
+    if (month == "February")  return "02";
+    if (month == "March")     return "03";
+    if (month == "April")     return "04";
+    if (month == "May")       return "05";
+    if (month == "June")      return "06";
+    if (month == "July")      return "07";
+    if (month == "August")    return "08";
+    if (month == "September") return "09";
+    if (month == "October")   return "10";
+    if (month == "November")  return "11";
+    if (month == "December")  return "12";
+    return "00"; // Default error case
+}
+
+/**
+Function to reformat a date string from "Month DD, YYYY" to "DD-MM-YYYY".
+Example: "December 23, 2017" becomes "23-12-2017".
+*/
+string formatDate(const string &dateStr) {
+    stringstream ss(dateStr);
+    string month, day, year;
+    ss >> month >> day >> year; // Extract month, day, and year
+    if(!day.empty() && day.back() == ',') {       // Remove the comma from the day if present
+        day.pop_back();
+    }
+    // Return the reformatted date string
+    return day + "-" + getMonthNumber(month) + "-" + year;
+}
+
+/**
+Function to parse a CSV line into its individual columns while correctly handling quoted fields.
+This function extracts the first four columns: title, text, subject, and date.
+It manually parses the CSV line without using vector or list.
+*/
+void parseCSVLine(const string &line, string &title, string &text, string &subject, string &date) {
+    string field;          // To accumulate characters for a field
+    int col = 0;           // Column counter
+    bool inQuotes = false; // Flag to track if we're inside quotes
+
+    // Iterate over each character in the line
+    for (size_t i = 0; i < line.size(); i++) {
+        char c = line[i];
+
+        if (c == '"') {  // If we encounter a quote
+            // Toggle the inQuotes flag
+            inQuotes = !inQuotes;
+        } else if (c == ',' && !inQuotes) { // Comma delimiter outside quotes
+            // Assign the accumulated field to the appropriate column
+            switch(col) {
+                case 0: title = trim(field); break;
+                case 1: text = trim(field); break;
+                case 2: subject = trim(field); break;
+                case 3: date = trim(field); break;
+                // We ignore any extra columns here
+            }
+            col++;         // Move to next column
+            field.clear(); // Clear the field accumulator
+        } else {
+            field.push_back(c); // Append character to the field
+        }
+    }
+    // After the loop, assign the last field (if any)
+    if (!field.empty() || col == 3) {
+        switch(col) {
+            case 0: title = trim(field); break;
+            case 1: text = trim(field); break;
+            case 2: subject = trim(field); break;
+            case 3: date = trim(field); break;
+        }
+    }
+}
+
+/**
+Function to process a CSV file, clean the data, reformat the date, and add a new "source" column.
 The source column helps identify whether the data comes from "fake.csv" or "true.csv".
 
 * @param filename The name of the CSV file to process (e.g., "fake.csv" or "true.csv").
@@ -109,17 +188,32 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
             line = readQuotedField(infile, line);
         }
 
-        line = handleSymbols(line);             // Clean symbols from the text
-        if (!line.empty()) {                    // Ensure the cleaned line isn't empty
-            line = handleMissingValue(line);    // Handle missing values (empty fields)
-            line += ",\"" + source + "\"";      // Add the "source" column (enclosed in double quotes to prevent Excel issues)
-            outfile << line << "\n";            // Write to the output file
+        line = handleSymbols(line);     // Clean symbols from the text
+
+        if (!line.empty()) {            // Ensure the cleaned line isn't empty
+            // Instead of handling missing values by splitting on commas,
+            // we now parse the line to correctly handle commas inside quoted fields.
+            string title, text, subject, date;
+            parseCSVLine(line, title, text, subject, date);
+
+            // Handle missing values for each field individually
+            if(title.empty())   title = "NA";
+            if(text.empty())    text = "NA";
+            if(subject.empty()) subject = "NA";
+            if(date.empty())    date = "NA";
+            else                date = formatDate(date); // Reformat the date
+
+            // Write the cleaned data with the source column added (enclosed in quotes to prevent Excel issues)
+            outfile << "\"" << title << "\","
+                    << "\"" << text << "\","
+                    << "\"" << subject << "\","
+                    << "\"" << date << "\","
+                    << "\"" << source << "\"\n";
         }
     }
 
     infile.close(); // Close the input file
 }
-
 
 /**
 Main function to merge two CSV files ("fake.csv" and "true.csv").
