@@ -15,7 +15,7 @@ string trim(const string &str) {                                // Const prevent
     return str.substr(first_char, last_char - first_char + 1);  // Extract the trimmed string
 }
 
-/**
+/*
 Function to handle missing values in a CSV row.
 If a field is empty (e.g., ",,"), it replaces it with "NA".
 */
@@ -36,7 +36,7 @@ string handleMissingValue(const string &line) {
     return cleanedLine;
 }
 
-/**
+/*
 Function to remove unwanted symbols and non-printable ASCII characters from a string.
 Keeps necessary symbols like apostrophes ('), letters, numbers, and standard punctuation.
 */
@@ -61,7 +61,7 @@ string handleSymbols(const string &str) {
     return trim(cleaned); // Trim spaces at the start and end before returning
 }
 
-/**
+/*
 Function to handle multi-line quoted fields in a CSV file.
 Some text fields in CSVs can have multiple lines enclosed in quotes.
 This function reads until the closing quote is found.
@@ -77,7 +77,7 @@ string readQuotedField(ifstream &infile, string firstPart) {
     return fullField;
 }
 
-/**
+/*
 Function to convert month name to its two-digit number representation.
 Example: "December" becomes "12".
 */
@@ -98,7 +98,7 @@ string getMonthNumber(const string &month) {
     return "00"; // Default error case
 }
 
-/**
+/*
 Function to reformat a date string from "Month DD, YYYY" to "DD-MM-YYYY".
 Example: "December 23, 2017" becomes "23-12-2017".
 */
@@ -113,7 +113,7 @@ string formatDate(const string &dateStr) {
     return day + "-" + getMonthNumber(month) + "-" + year;
 }
 
-/**
+/*
 Function to parse a CSV line into its individual columns while correctly handling quoted fields.
 This function extracts the first four columns: title, text, subject, and date.
 It manually parses the CSV line without using vector or list.
@@ -212,10 +212,11 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
         }
     }
 
-    infile.close(); // Close the input file
+    // Close the input file
+    infile.close(); 
 }
 
-/**
+/*
 Main function to merge two CSV files ("fake.csv" and "true.csv").
 Creates a new output file "DataCleaned.csv" with an additional "source" column.
 */
