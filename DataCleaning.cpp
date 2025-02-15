@@ -5,10 +5,10 @@
 
 using namespace std;
 
-/*
-Function to remove leading and trailing spaces, tabs, and newlines from a string.
-This helps clean up unwanted whitespace from CSV fields.
-*/
+/**
+ * Function to remove leading and trailing spaces, tabs, and newlines from a string.
+ * This helps clean up unwanted whitespace from CSV fields.
+ */
 string trim(const string &str) {                                // Const prevents modification of str in the function, & avoids making a copy of str, improving efficiency
     size_t first_char = str.find_first_not_of(" \t");           // Find first non-space/tab character
     if (first_char == string::npos) return "";                  // Empty or white space only, if line is whitespace, return empty string
@@ -16,10 +16,10 @@ string trim(const string &str) {                                // Const prevent
     return str.substr(first_char, last_char - first_char + 1);  // Extract the trimmed string
 }
 
-/*
-Function to handle missing values in a CSV row.
-If a field is empty (e.g., ",,"), it replaces it with "NA".
-*/
+/**
+ * Function to handle missing values in a CSV row.
+ * If a field is empty (e.g., ",,"), it replaces it with "NA".
+ */
 string handleMissingValue(const string &line) {
     stringstream ss(line);      // Entire row line is passed in as a single string, convert it into a stream so can extract each column (separate by ",")
     string token, cleanedLine;  // Variable to store each extracted column and the final cleaned line
@@ -37,10 +37,10 @@ string handleMissingValue(const string &line) {
     return cleanedLine;
 }
 
-/*
-Function to remove unwanted symbols and non-printable ASCII characters from a string.
-Keeps necessary symbols like apostrophes ('), letters, numbers, and standard punctuation.
-*/
+/**
+ * Function to remove unwanted symbols and non-printable ASCII characters from a string.
+ * Keeps necessary symbols like apostrophes ('), letters, numbers, and standard punctuation.
+ */
 string handleSymbols(const string &str) {
     string cleaned;
     bool lastWasNewline = false; // Track if the last character was a newline to avoid excessive spaces
@@ -62,11 +62,12 @@ string handleSymbols(const string &str) {
     return trim(cleaned); // Trim spaces at the start and end before returning
 }
 
-/*
-Function to handle multi-line quoted fields in a CSV file.
-Some text fields in CSVs can have multiple lines enclosed in quotes.
-This function reads until the closing quote is found.
-*/
+/**
+ * Function to handle multi-line quoted fields in a CSV file.
+ * Some text fields in CSVs can have multiple lines enclosed in quotes.
+ * This function reads until the closing quote is found.
+ * @param firstPart The first line
+ */
 string readQuotedField(ifstream &infile, string firstPart) {
     string line, fullField = firstPart;
 
@@ -78,10 +79,10 @@ string readQuotedField(ifstream &infile, string firstPart) {
     return fullField;
 }
 
-/*
-Function to convert month name to its two-digit number representation.
-Example: "December" becomes "12".
-*/
+/**
+ * Function to convert month name (full or abbreviated) to its two-digit number representation.
+ * Example: "December" or "Dec" becomes "12".
+ */
 string getMonthNumber(const string &month) {
     // This function uses a series of if-else statements to match the month.
     if (month == "January" || month == "Jan")   return "01";
@@ -99,10 +100,12 @@ string getMonthNumber(const string &month) {
     return "00"; // Default error case
 }
 
-/*
-Function to reformat a date string from "Month DD, YYYY" to "DD-MM-YYYY".
-Example: "December 23, 2017" becomes "23-12-2017".
-*/
+/**
+ * Function to reformat a date string from various formats to "DD-MM-YYYY".
+ * Handles formats such as:
+ * - "December 23, 2017" or "Dec 20, 2017"
+ * - "19-Feb-18" or "19-Feb-2018"
+ */
 string formatDate(const string &dateStr) {
     string ds = trim(dateStr);
     if(ds.empty()) return "NA";
@@ -139,48 +142,13 @@ string formatDate(const string &dateStr) {
     else {
         return ds;
     }
-    string ds = trim(dateStr);
-    if(ds.empty()) return "NA";
-    
-    // Check if the format contains a comma, indicating "Month DD, YYYY" format (full or abbreviated month)
-    if(ds.find(',') != string::npos) {
-        stringstream ss(ds);
-        string month, day, year;
-        ss >> month >> day >> year; // Extract month, day, and year
-        if(!day.empty() && day.back() == ',') {       // Remove the comma from the day if present
-            day.pop_back();
-        }
-        if(year.size() == 2) {                          // Convert short year to four-digit year
-            year = "20" + year;
-        }
-        return day + "-" + getMonthNumber(month) + "-" + year;
-    }
-    // Check if the format contains '-' indicating a "DD-MMM-YY" or "DD-MMM-YYYY" format
-    else if(ds.find('-') != string::npos) {
-        size_t firstDash = ds.find('-');
-        size_t secondDash = ds.find('-', firstDash + 1);
-        if(firstDash == string::npos || secondDash == string::npos) {
-            return ds; // Return original if not as expected
-        }
-        string day = ds.substr(0, firstDash);
-        string month = ds.substr(firstDash + 1, secondDash - firstDash - 1);
-        string year = ds.substr(secondDash + 1);
-        if(year.size() == 2) {                          // Convert short year to four-digit year
-            year = "20" + year;
-        }
-        return day + "-" + getMonthNumber(month) + "-" + year;
-    }
-    // If no known delimiter is found, return the original string
-    else {
-        return ds;
-    }
 }
 
-/*
-Function to parse a CSV line into its individual columns while correctly handling quoted fields.
-This function extracts the first four columns: title, text, subject, and date.
-It manually parses the CSV line without using vector or list.
-*/
+/**
+ * Function to parse a CSV line into its individual columns while correctly handling quoted fields.
+ * This function extracts the first four columns: title, text, subject, and date.
+ * It manually parses the CSV line without using vector or list.
+ */
 void parseCSVLine(const string &line, string &title, string &text, string &subject, string &date) {
     string field;          // To accumulate characters for a field
     int col = 0;           // Column counter
@@ -190,8 +158,6 @@ void parseCSVLine(const string &line, string &title, string &text, string &subje
     for (size_t i = 0; i < line.size(); i++) {
         char c = line[i];
 
-        if (c == '"') {             // If we encounter a quote
-            inQuotes = !inQuotes;   // Toggle the inQuotes flag
         if (c == '"') {             // If we encounter a quote
             inQuotes = !inQuotes;   // Toggle the inQuotes flag
         } else if (c == ',' && !inQuotes) { // Comma delimiter outside quotes
@@ -221,12 +187,6 @@ void parseCSVLine(const string &line, string &title, string &text, string &subje
 }
 
 /**
- * Function to process a CSV file, clean the data, reformat the date, and add a new "source" column.
- * The source column helps identify whether the data comes from "fake.csv" or "true.csv".
- * @param filename The name of the CSV file to process (e.g., "fake.csv" or "true.csv").
- * @param outfile The output file stream where the cleaned and merged data is written.
- * @param source The source label (either "fake" or "true") that gets added as a new column.
- */
  * Function to process a CSV file, clean the data, reformat the date, and add a new "source" column.
  * The source column helps identify whether the data comes from "fake.csv" or "true.csv".
  * @param filename The name of the CSV file to process (e.g., "fake.csv" or "true.csv").
@@ -270,10 +230,6 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
             if (text.empty())    text = "NA";
             if (subject.empty()) subject = "NA";
             if (date.empty())    date = "NA";
-            if (title.empty())   title = "NA";
-            if (text.empty())    text = "NA";
-            if (subject.empty()) subject = "NA";
-            if (date.empty())    date = "NA";
             else                date = formatDate(date); // Reformat the date
 
             // Write the cleaned data with the source column added (enclosed in quotes to prevent Excel issues)
@@ -287,14 +243,12 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
 
     // Close the input file
     infile.close(); 
-    // Close the input file
-    infile.close(); 
 }
 
-/*
-Main function to merge two CSV files ("fake.csv" and "true.csv").
-Creates a new output file "DataCleaned.csv" with an additional "source" column.
-*/
+/**
+ * Main function to merge two CSV files ("fake.csv" and "true.csv").
+ * Creates a new output file "DataCleaned.csv" with an additional "source" column.
+ */
 int main() {
     ofstream outfile("DataCleaned.csv"); // Open the output file for writing
 
