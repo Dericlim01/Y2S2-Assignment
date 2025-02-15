@@ -46,3 +46,7 @@ DataCleaning.exe
 DataCleaning.ilk
 DataCleaning.obj
 DataCleaning.pdb
+*.exe
+*.ilk
+*.obj
+*.pdb

@@ -1,170 +1,160 @@
 #include <iostream>
 #include <fstream>
-#include <sstream>
-#include <cctype> // Required for isdigit()
-#include <chrono> // For execution time measurement
+#include <string>
+#include <cctype>  // for toupper()
 using namespace std;
-using namespace std::chrono;
 
-// Structure to store news articles
-struct NewsArticle {
+struct News {
     string title;
     string text;
     string subject;
     string date;
-    string label;
+    bool isFake;
+    int year;
 };
 
-// Function to extract year from date
-int extractYear(const string& date) {
-    return stoi(date.substr(0, 4));
-}
-
-// Function to validate date format (YYYY-MM-DD)
-bool isValidDateFormat(const string& date) {
-    if (date.length() != 10) return false;
-    cout << date;
-    if (date[4] != '-' || date[7] != '-') return false;
-    for (int i = 0; i < 4; ++i) if (!isdigit(date[i])) return false;
-    for (int i = 5; i < 7; ++i) if (!isdigit(date[i])) return false;
-    for (int i = 8; i < 10; ++i) if (!isdigit(date[i])) return false;
-    return true;
-}
-
-// Function to read CSV file and store only valid rows
-int readCSV(const string &filename, NewsArticle articles[], int maxSize) {
-    ifstream file(filename);
-    string line;
-    int count = 0;
-    
-    if (!file.is_open()) {
-        cerr << "Error opening file!" << endl;
-        return 0;
-    }
-    
-    getline(file, line); // Skip header
-    while (getline(file, line) && count < maxSize) {
-        stringstream ss(line);
-        string temp[5];
-        int colCount = 0;
-        
-        while (colCount < 5 && getline(ss, temp[colCount], ',')) {
-            colCount++;
-        }
-        if (colCount != 5 || !isValidDateFormat(temp[3])) {
-            continue;
-        }
-        articles[count++] = {temp[0], temp[1], temp[2], temp[3], temp[4]};
-    }
-    
-    file.close();
-    return count;
-}
-
-// Bubble Sort by Year
-void bubbleSortByYear(NewsArticle arr[], int size) {
-    for (int i = 0; i < size - 1; i++) {
-        for (int j = 0; j < size - i - 1; j++) {
-            if (extractYear(arr[j].date) > extractYear(arr[j + 1].date)) {
-                swap(arr[j], arr[j + 1]);
-            }
-        }
-    }
-}
-
-// Insertion Sort by Title
-void insertionSortByTitle(NewsArticle arr[], int size) {
-    for (int i = 1; i < size; i++) {
-        NewsArticle key = arr[i];
-        int j = i - 1;
-        while (j >= 0 && arr[j].title > key.title) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
-    }
-}
-
-// Binary Search for Title
-int binarySearchByTitle(NewsArticle arr[], int size, string targetTitle) {
-    int left = 0, right = size - 1;
-    while (left <= right) {
-        int mid = left + (right - left) / 2;
-        if (arr[mid].title == targetTitle) {
-            return mid; // Found
-        } else if (arr[mid].title < targetTitle) {
-            left = mid + 1;
-        } else {
-            right = mid - 1;
-        }
-    }
-    return -1; // Not found
-}
-
-// Linear Search by Year
-void searchByYear(NewsArticle arr[], int size, int year) {
-    cout << "\nArticles from the year " << year << ":\n";
-    bool found = false;
-    for (int i = 0; i < size; i++) {
-        if (extractYear(arr[i].date) == year) {
-            cout << "Title: " << arr[i].title << " | Date: " << arr[i].date << endl;
-            found = true;
-        }
-    }
-    if (!found) {
-        cout << "No articles found for the year " << year << ".\n";
-    }
-}
-
-// Function to print sorted articles
-void printArticles(NewsArticle arr[], int size) {
-    for (int i = 0; i < size; ++i) {
-        cout << "Title: " << arr[i].title << " | Date: " << arr[i].date << endl;
-    }
-}
-
 int main() {
-    const int MAX_SIZE = 5000;
-    NewsArticle articles[MAX_SIZE];
-    
-    string filename = "DataCleaned.csv";
-    int size = readCSV(filename, articles, MAX_SIZE);
-    
-    if (size == 0) {
-        cout << "No valid data found in CSV!" << endl;
+    const int MAX_ARTICLES = 50000;
+    // Dynamically allocate an array of News objects on the heap.
+    News* articles = new News[MAX_ARTICLES];
+    int articleCount = 0;
+
+    ifstream file("DataCleaned.csv");
+    if (!file) {
+        cerr << "Error opening file." << endl;
+        delete[] articles;
         return 1;
     }
-    
-    // Sorting by Year (Bubble Sort)
-    cout << "\nSorting by Year (Chronological Order using Bubble Sort):" << endl;
-    auto start = high_resolution_clock::now();
-    bubbleSortByYear(articles, size);
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(stop - start);
-    cout << "Execution Time (Bubble Sort by Year): " << duration.count() << " ms\n";
-    printArticles(articles, size);
-    
-    // Sorting by Title (Insertion Sort)
-    cout << "\nSorting by Title (Alphabetical Order using Insertion Sort):" << endl;
-    start = high_resolution_clock::now();
-    insertionSortByTitle(articles, size);
-    stop = high_resolution_clock::now();
-    duration = duration_cast<milliseconds>(stop - start);
-    cout << "Execution Time (Insertion Sort by Title): " << duration.count() << " ms\n";
-    printArticles(articles, size);
-    
-    // Search Articles by Year
-    int searchYear = 2016; // Replace with the desired year
-    searchByYear(articles, size, searchYear);
-    
-    // Binary Search by Title
-    string targetTitle = "Example Title"; // Replace with actual title to search
-    int result = binarySearchByTitle(articles, size, targetTitle);
-    if (result != -1) {
-        cout << "\nArticle Found: " << articles[result].title << " | Date: " << articles[result].date << endl;
-    } else {
-        cout << "\nArticle not found." << endl;
+
+    // Skip the header line.
+    string header;
+    getline(file, header);
+
+    string line;
+    int lineNumber = 1; // Header is line 1.
+    while (getline(file, line) && articleCount < MAX_ARTICLES) {
+        lineNumber++;
+        // --- Multi-line record handling ---
+        int quoteCount = 0;
+        for (char c : line)
+            if (c == '"')
+                quoteCount++;
+        // If quote count is odd, append lines until quotes balance.
+        while ((quoteCount % 2) != 0 && !file.eof()) {
+            string extra;
+            if (!getline(file, extra))
+                break;
+            line += "\n" + extra;
+            quoteCount = 0;
+            for (char c : line)
+                if (c == '"')
+                    quoteCount++;
+        }
+
+        // --- Parse the record into fields using a fixed array ---
+        // We assume at most 20 fields can be split.
+        string tempFields[20];
+        int fieldCount = 0;
+        bool inQuotes = false;
+        string currentField = "";
+
+        for (size_t i = 0; i < line.size(); i++) {
+            char c = line[i];
+            if (c == '"') {
+                // Handle escaped quotes: if inside quotes and next char is also a quote.
+                if (inQuotes && i + 1 < line.size() && line[i + 1] == '"') {
+                    currentField.push_back('"');
+                    i++; // Skip the escaped quote.
+                } else {
+                    inQuotes = !inQuotes; // Toggle the inQuotes flag.
+                }
+            } else if (c == ',' && !inQuotes) {
+                // Comma outside quotes signals end of current field.
+                tempFields[fieldCount++] = currentField;
+                currentField = "";
+            } else {
+                currentField.push_back(c);
+            }
+        }
+        // Add the last field.
+        tempFields[fieldCount++] = currentField;
+
+        // --- Collapse extra fields if there are more than 5 ---
+        // We expect exactly 5 columns:
+        // 0: title, 1: text, 2: subject, 3: date, 4: T/F field.
+        if (fieldCount < 5) {
+            cerr << "Warning (line " << lineNumber << "): Expected at least 5 fields, got " << fieldCount 
+                 << ". Skipping this record." << endl;
+            continue; // Skip malformed record.
+        }
+        if (fieldCount > 5) {
+            string combined = tempFields[4];
+            for (int i = 5; i < fieldCount; i++) {
+                combined += "," + tempFields[i];
+            }
+            tempFields[4] = combined;
+            fieldCount = 5;
+        }
+
+        // Replace empty fields with "NA".
+        for (int i = 0; i < 5; i++) {
+            if (tempFields[i].empty())
+                tempFields[i] = "NA";
+        }
+
+        // --- Populate a News object ---
+        News article;
+        article.title   = tempFields[0];
+        article.text    = tempFields[1];
+        article.subject = tempFields[2];
+        article.date    = tempFields[3];
+
+        // Extract the year from the date.
+        // Assuming the date is in "DD-MM-YYYY" format, extract the last 4 characters.
+        if (article.date != "NA" && article.date.size() >= 10) {
+            try {
+                article.year = stoi(article.date.substr(article.date.size() - 4, 4));
+            } catch (...) {
+                article.year = 0;
+            }
+        } else {
+            article.year = 0;
+        }
+
+        // Process the T/F field (column 5). Convert to uppercase.
+        string tfField = tempFields[4];
+        for (size_t i = 0; i < tfField.size(); i++) {
+            tfField[i] = toupper(tfField[i]);
+        }
+        // Original logic: article.isFake = (tfField == "FAKE");
+        // Changed logic: Invert the boolean value so that if it was false it becomes true.
+        // For example, if tfField equals "FAKE", we now want isFake to be false, otherwise true.
+        article.isFake = !(tfField == "FAKE");
+
+        articles[articleCount++] = article;
     }
-    
+    file.close();
+
+    // --- Output verification for every article ---
+    // Print date, subject, and the isFake (true/false) for each article.
+    for (int i = 0; i < articleCount; i++) {
+        cout << "Article " << i + 1 << ": ";
+        cout << "Date: " << articles[i].date << ", ";
+        cout << "Subject: " << articles[i].subject << ", ";
+        cout << "isFake: " << (articles[i].isFake ? "true" : "false") << endl;
+    }
+
+    // Optionally, print details for the first article.
+    if (articleCount > 0) {
+        cout << "\nFirst article details:" << endl;
+        cout << "  Title:   " << articles[0].title << endl;
+        cout << "  Text:    " << articles[0].text << endl;
+        cout << "  Subject: " << articles[0].subject << endl;
+        cout << "  Date:    " << articles[0].date << " (Year: " << articles[0].year << ")" << endl;
+        cout << "  isFake:  " << (articles[0].isFake ? "true" : "false") << endl;
+    }
+
+    // Free the dynamically allocated memory.
+    delete[] articles;
     return 0;
 }

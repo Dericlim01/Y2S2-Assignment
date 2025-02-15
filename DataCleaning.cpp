@@ -2,12 +2,13 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+
 using namespace std;
 
-/*
-Function to remove leading and trailing spaces, tabs, and newlines from a string.
-This helps clean up unwanted whitespace from CSV fields.
-*/
+/**
+ * Function to remove leading and trailing spaces, tabs, and newlines from a string.
+ * This helps clean up unwanted whitespace from CSV fields.
+ */
 string trim(const string &str) {                                // Const prevents modification of str in the function, & avoids making a copy of str, improving efficiency
     size_t first_char = str.find_first_not_of(" \t");           // Find first non-space/tab character
     if (first_char == string::npos) return "";                  // Empty or white space only, if line is whitespace, return empty string
@@ -83,18 +84,18 @@ Example: "December" becomes "12".
 */
 string getMonthNumber(const string &month) {
     // This function uses a series of if-else statements to match the month.
-    if (month == "January")   return "01";
-    if (month == "February")  return "02";
-    if (month == "March")     return "03";
-    if (month == "April")     return "04";
-    if (month == "May")       return "05";
-    if (month == "June")      return "06";
-    if (month == "July")      return "07";
-    if (month == "August")    return "08";
-    if (month == "September") return "09";
-    if (month == "October")   return "10";
-    if (month == "November")  return "11";
-    if (month == "December")  return "12";
+    if (month == "January" || month == "Jan")   return "01";
+    if (month == "February" || month == "Feb")  return "02";
+    if (month == "March" || month == "Mar")     return "03";
+    if (month == "April" || month == "Apr")     return "04";
+    if (month == "May")                         return "05";
+    if (month == "June" || month == "Jun")       return "06";
+    if (month == "July" || month == "Jul")       return "07";
+    if (month == "August" || month == "Aug")     return "08";
+    if (month == "September" || month == "Sep")   return "09";
+    if (month == "October" || month == "Oct")     return "10";
+    if (month == "November" || month == "Nov")    return "11";
+    if (month == "December" || month == "Dec")    return "12";
     return "00"; // Default error case
 }
 
@@ -103,14 +104,41 @@ Function to reformat a date string from "Month DD, YYYY" to "DD-MM-YYYY".
 Example: "December 23, 2017" becomes "23-12-2017".
 */
 string formatDate(const string &dateStr) {
-    stringstream ss(dateStr);
-    string month, day, year;
-    ss >> month >> day >> year; // Extract month, day, and year
-    if(!day.empty() && day.back() == ',') {       // Remove the comma from the day if present
-        day.pop_back();
+    string ds = trim(dateStr);
+    if(ds.empty()) return "NA";
+    
+    // Check if the format contains a comma, indicating "Month DD, YYYY" format (full or abbreviated month)
+    if(ds.find(',') != string::npos) {
+        stringstream ss(ds);
+        string month, day, year;
+        ss >> month >> day >> year; // Extract month, day, and year
+        if(!day.empty() && day.back() == ',') {       // Remove the comma from the day if present
+            day.pop_back();
+        }
+        if(year.size() == 2) {                          // Convert short year to four-digit year
+            year = "20" + year;
+        }
+        return day + "-" + getMonthNumber(month) + "-" + year;
     }
-    // Return the reformatted date string
-    return day + "-" + getMonthNumber(month) + "-" + year;
+    // Check if the format contains '-' indicating a "DD-MMM-YY" or "DD-MMM-YYYY" format
+    else if(ds.find('-') != string::npos) {
+        size_t firstDash = ds.find('-');
+        size_t secondDash = ds.find('-', firstDash + 1);
+        if(firstDash == string::npos || secondDash == string::npos) {
+            return ds; // Return original if not as expected
+        }
+        string day = ds.substr(0, firstDash);
+        string month = ds.substr(firstDash + 1, secondDash - firstDash - 1);
+        string year = ds.substr(secondDash + 1);
+        if(year.size() == 2) {                          // Convert short year to four-digit year
+            year = "20" + year;
+        }
+        return day + "-" + getMonthNumber(month) + "-" + year;
+    }
+    // If no known delimiter is found, return the original string
+    else {
+        return ds;
+    }
 }
 
 /*
@@ -127,9 +155,8 @@ void parseCSVLine(const string &line, string &title, string &text, string &subje
     for (size_t i = 0; i < line.size(); i++) {
         char c = line[i];
 
-        if (c == '"') {  // If we encounter a quote
-            // Toggle the inQuotes flag
-            inQuotes = !inQuotes;
+        if (c == '"') {             // If we encounter a quote
+            inQuotes = !inQuotes;   // Toggle the inQuotes flag
         } else if (c == ',' && !inQuotes) { // Comma delimiter outside quotes
             // Assign the accumulated field to the appropriate column
             switch(col) {
@@ -157,13 +184,12 @@ void parseCSVLine(const string &line, string &title, string &text, string &subje
 }
 
 /**
-Function to process a CSV file, clean the data, reformat the date, and add a new "source" column.
-The source column helps identify whether the data comes from "fake.csv" or "true.csv".
-
-* @param filename The name of the CSV file to process (e.g., "fake.csv" or "true.csv").
-* @param outfile The output file stream where the cleaned and merged data is written.
-* @param source The source label (either "fake" or "true") that gets added as a new column.
-*/
+ * Function to process a CSV file, clean the data, reformat the date, and add a new "source" column.
+ * The source column helps identify whether the data comes from "fake.csv" or "true.csv".
+ * @param filename The name of the CSV file to process (e.g., "fake.csv" or "true.csv").
+ * @param outfile The output file stream where the cleaned and merged data is written.
+ * @param source The source label (either "fake" or "true") that gets added as a new column.
+ */
 void processCSV(const string &filename, ofstream &outfile, const string &source, bool skipHeader) {
     ifstream infile(filename); // Open the input CSV file
 
@@ -197,10 +223,10 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
             parseCSVLine(line, title, text, subject, date);
 
             // Handle missing values for each field individually
-            if(title.empty())   title = "NA";
-            if(text.empty())    text = "NA";
-            if(subject.empty()) subject = "NA";
-            if(date.empty())    date = "NA";
+            if (title.empty())   title = "NA";
+            if (text.empty())    text = "NA";
+            if (subject.empty()) subject = "NA";
+            if (date.empty())    date = "NA";
             else                date = formatDate(date); // Reformat the date
 
             // Write the cleaned data with the source column added (enclosed in quotes to prevent Excel issues)
@@ -212,6 +238,8 @@ void processCSV(const string &filename, ofstream &outfile, const string &source,
         }
     }
 
+    // Close the input file
+    infile.close(); 
     // Close the input file
     infile.close(); 
 }
