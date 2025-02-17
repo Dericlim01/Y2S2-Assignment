@@ -4,9 +4,10 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <iomanip>
 #include <chrono>
-#include <functional>   // for std::ref
-#include <utility>      // for std::forward
+#include <functional>   
+#include <utility>     
 using namespace std;
 using namespace std::chrono;
 // ----------------------------------------------------------------
@@ -334,6 +335,8 @@ int binarySearchByYear(News *articles, int left, int right, int targetYear) {
 void percentageByMonthLinear(News *articles, int count) {
     int total[13] = {0};  // months 1..12
     int fake[13] = {0};
+
+    // Count total/fake for political news in 2016
     for (int i = 0; i < count; i++) {
         if (articles[i].year == 2016 && articles[i].subject.find("politics") != string::npos) {
             string monthStr = articles[i].date.substr(3, 2);
@@ -343,18 +346,30 @@ void percentageByMonthLinear(News *articles, int count) {
                 fake[month]++;
         }
     }
+
     cout << "=== Percentage for Fake Political News by Month (Linear Scan) ===" << endl;
     for (int m = 1; m <= 12; m++) {
         if (total[m] > 0) {
-            double percentage = (static_cast<double>(fake[m]) / total[m]) * 100;
-            cout << "Month " << m << ": " << percentage << "%" << endl;
+            double percentage = (static_cast<double>(fake[m]) / total[m]) * 100.0;
+            // Number of stars is the integer part of the percentage
+            int starCount = static_cast<int>(percentage);
+
+            cout << "Month " << m << ": ";
+            // Print stars
+            for (int s = 0; s < starCount; s++) {
+                cout << "*";
+            }
+            // Print percentage with 4 decimal places (optional)
+            cout << " " << fixed << setprecision(4) << percentage << "%" << endl;
         } else {
             cout << "Month " << m << ": No data" << endl;
         }
     }
 }
 
+
 void percentageByMonthSorting(News *articles, int count) {
+    // Filter political news in 2016
     int filteredCount = 0;
     News* filtered = new News[count]; // worst-case size
     for (int i = 0; i < count; i++) {
@@ -362,6 +377,8 @@ void percentageByMonthSorting(News *articles, int count) {
             filtered[filteredCount++] = articles[i];
         }
     }
+
+    // Helper lambda to extract month from date
     auto getMonth = [](const News &article) -> int {
         if (article.date.size() >= 5) {
             try {
@@ -372,6 +389,8 @@ void percentageByMonthSorting(News *articles, int count) {
         }
         return 0;
     };
+
+    // Sort by month using a simple bubble sort
     for (int i = 0; i < filteredCount - 1; i++) {
         for (int j = 0; j < filteredCount - i - 1; j++) {
             if (getMonth(filtered[j]) > getMonth(filtered[j+1])) {
@@ -379,23 +398,37 @@ void percentageByMonthSorting(News *articles, int count) {
             }
         }
     }
+
     cout << "=== Percentage for Fake Political News by Month (Sorting & Grouping) ===" << endl;
+
     int i = 0;
     while (i < filteredCount) {
         int month = getMonth(filtered[i]);
         int total = 0;
         int fakeCount = 0;
+
+        // Count how many articles are in this month
         while (i < filteredCount && getMonth(filtered[i]) == month) {
             total++;
             if (!filtered[i].isTrue)
                 fakeCount++;
             i++;
         }
-        double percentage = (static_cast<double>(fakeCount) / total) * 100;
-        cout << "Month " << month << ": " << percentage << "%" << endl;
+
+        double percentage = (static_cast<double>(fakeCount) / total) * 100.0;
+        int starCount = static_cast<int>(percentage);
+
+        cout << "Month " << month << ": ";
+        // Print stars
+        for (int s = 0; s < starCount; s++) {
+            cout << "*";
+        }
+        // Print percentage
+        cout << " " << fixed << setprecision(4) << percentage << "%" << endl;
     }
     delete[] filtered;
 }
+
 
 // ----------------------------------------------------------------
 // Main Menu Loop
