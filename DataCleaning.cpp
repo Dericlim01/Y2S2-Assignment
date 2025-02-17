@@ -108,32 +108,34 @@ string getMonthNumber(const string &month) {
  */
 string formatDate(const string &dateStr) {
     string ds = trim(dateStr);
-    if(ds.empty()) return "NA";
-    
+    if (ds.empty()) return "NA";
+
     // Check if the format contains a comma, indicating "Month DD, YYYY" format (full or abbreviated month)
-    if(ds.find(',') != string::npos) {
+    if (ds.find(',') != string::npos) {
         stringstream ss(ds);
         string month, day, year;
         ss >> month >> day >> year; // Extract month, day, and year
-        if(!day.empty() && day.back() == ',') {       // Remove the comma from the day if present
+        if (!day.empty() && day.back() == ',') { // Remove the comma from the day if present
             day.pop_back();
         }
-        if(year.size() == 2) {                          // Convert short year to four-digit year
+        if (day.size() == 1) day = "0" + day; // Pad single-digit day with leading zero
+        if (year.size() == 2) { // Convert short year to four-digit year
             year = "20" + year;
         }
         return day + "-" + getMonthNumber(month) + "-" + year;
     }
-    // Check if the format contains '-' indicating a "DD-MMM-YY" or "DD-MMM-YYYY" format
-    else if(ds.find('-') != string::npos) {
+    // Check if the format contains '-' indicating a "D-MMM-YY" or "D-MMM-YYYY" format
+    else if (ds.find('-') != string::npos) {
         size_t firstDash = ds.find('-');
         size_t secondDash = ds.find('-', firstDash + 1);
-        if(firstDash == string::npos || secondDash == string::npos) {
+        if (firstDash == string::npos || secondDash == string::npos) {
             return ds; // Return original if not as expected
         }
         string day = ds.substr(0, firstDash);
         string month = ds.substr(firstDash + 1, secondDash - firstDash - 1);
         string year = ds.substr(secondDash + 1);
-        if(year.size() == 2) {                          // Convert short year to four-digit year
+        if (day.size() == 1) day = "0" + day; // Pad single-digit day with leading zero
+        if (year.size() == 2) { // Convert short year to four-digit year
             year = "20" + year;
         }
         return day + "-" + getMonthNumber(month) + "-" + year;
