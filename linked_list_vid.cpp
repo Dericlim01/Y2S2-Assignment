@@ -10,9 +10,10 @@ using namespace std;
 
 struct News {
     string title, text, subject, date, identify;
-    int year;
+    int year, data;
     News *next, *head;
     News() : next(nullptr) {}
+    News(int x) { data = x, next = nullptr; }
     News(string t, string tx, string sub, string d, string id)
         : title(t), text(tx), subject(sub), date(d), identify(id), next(nullptr) {}
 };
@@ -140,10 +141,11 @@ bool isValidDate(const string& date) {
  * Returns true if date1 <= date2
  */
 bool compareDate(const string& date1, const string& date2) {
+    //cout << "Comparing dates: " << date1 << " and " << date2 << endl;
     int day1, month1, year1, day2, month2, year2;
     char dash;  // for the '-' separator
     stringstream ss1(date1), ss2(date2);
-    //cout << "date1: " << date1 << "date2: " << date2 << endl;
+    cout << ss1.str() << " " << ss2.str() << endl;
     
     ss1 >> day1 >> dash >> month1 >> dash >> year1;
     ss2 >> day2 >> dash >> month2 >> dash >> year2;
@@ -161,15 +163,15 @@ News* partition(News* head, News* end, News** newHead, News** newEnd) {
     News* prev = nullptr, *cur = head, *tail = pivot;
 
     while (cur != pivot) {
-        if (compareDate(cur->date, pivot->date)) {  // Changed comparison
+        if (compareDate(cur -> date, pivot -> date)) {  // Changed comparison
             if ((*newHead) == nullptr) (*newHead) = cur;
             prev = cur;
-            cur = cur->next;
+            cur = cur -> next;
         } else {
-            if (prev) prev->next = cur->next;
-            News* tmp = cur->next;
-            cur->next = nullptr;
-            tail->next = cur;
+            if (prev) prev -> next = cur -> next;
+            News* tmp = cur -> next;
+            cur -> next = nullptr;
+            tail -> next = cur;
             tail = cur;
             cur = tmp;
         }
@@ -212,151 +214,158 @@ void quickSort(News** headRef) {
 }
 
 /**
- * Merge two sorted linked lists
- * @param first First sorted linked list
- * @param second Second sorted linked list
- * @return Merged sorted linked list
+ * Function to trim date
+ * @param date The date string to trim
+ * @return Tuple containing day, month, and year
  */
-News* merge(News* first, News* second) {
-    // Base cases
-    if (!first) return second;
-    if (!second) return first;
-
-    News* result = nullptr;
-
-    // Validate dates before comparison
-    if (!isValidDate(first->date) || !isValidDate(second->date)) {
-        // cerr << "Invalid date format encountered during merge" << endl;
-        return first; // Return first as fallback
-    }
-
-    try {
-        // Use compareDate function to compare dates
-        if (compareDate(first->date, second->date)) {
-            result = first;
-            result->next = merge(first->next, second);
-        } else {
-            result = second;
-            result->next = merge(first, second->next);
-        }
-    } catch (const exception& e) {
-        cerr << "Error during merge: " << e.what() << endl;
-        return first; // Return first as fallback
-    }
-
-    return result;
+tuple<string, string, string> trimDate(const string& date) {
+    stringstream ss(date);
+    // Trim the date
+    string day, month, year;
+    getline(ss, day, '-');
+    getline(ss, month, '-');
+    getline(ss, year);
+    return {day, month, year};
 }
 
-/**
- * Split the linked list into two halves
- * @param source Original linked list
- * @param frontRef Pointer to first half
- * @param backRef Pointer to second half
- */
-void splitList(News* source, News** frontRef, News** backRef) {
-    if (!source || !source->next) {
-        *frontRef = source;
-        *backRef = nullptr;
-        return;
-    }
+// Function to split the singly linked list into two halves
+News *split(News *head) {
+    News *fast = head;
+    News *slow = head;
 
-    News* slow = source;
-    News* fast = source->next;
-
-    // Fast pointer moves twice as fast as slow pointer
-    while (fast) {
-        fast = fast->next;
-        if (fast) {
+    // Move fast pointer two steps and slow pointer
+    // one step until fast reaches the end
+    while (fast != nullptr && fast->next != nullptr) {
+        fast = fast->next->next;
+        if (fast != nullptr) {
             slow = slow->next;
-            fast = fast->next;
         }
     }
-
-    *frontRef = source;
-    *backRef = slow->next;
-    slow->next = nullptr;
-}
-
-/**
- * Merge Sort implementation for linked list
- * @param headRef Reference to head pointer of linked list
- */
-void mergeSort(News** headRef) {
-    News* head = *headRef;
-    if (!head || !head->next) return;
-
-    News* front;
-    News* back;
 
     // Split the list into two halves
-    splitList(head, &front, &back);
+    News *temp = slow->next;
+    slow->next = nullptr;
+    return temp;
+}
 
-    // Recursively sort both halves
-    mergeSort(&front);
-    mergeSort(&back);
+// Function to merge two sorted singly linked lists
+News *merge(News *first, News *second) {
+    // If either list is empty, return the other list
+    if (first == nullptr) return second;
+    if (second == nullptr) return first;
 
-    // Merge the sorted halves
-    *headRef = merge(front, back);
+    int day_first, day_second, month_first, month_second, year_first, year_second;
+    try {
+        cout << "Comparing dates: " << first->date << " and " << second->date << endl;
+        auto [day1, month1, year1] = trimDate(first->date);
+        auto [day2, month2, year2] = trimDate(second->date);
+        year_first = stoi(year1);
+        year_second = stoi(year2);
+        month_first = stoi(month1);
+        month_second = stoi(month2);
+        day_first = stoi(day1);
+        day_second = stoi(day2);
+    } catch (const exception& e) {
+        cerr << e.what() << '\n';
+    }
+    
+    if (year_first < year_second) {
+        // Recursively merge the rest of the lists and
+        // link the result to the current node
+        first->next = merge(first->next, second);
+        return first;
+    } else if (year_first == year_second) {
+        if (month_first < month_second) {
+            // Recursively merge the rest of the lists and
+            // link the result to the current node
+            first->next = merge(first->next, second);
+            return first;
+        } else if (month_first == month_second) {
+            if (day_first < day_second) {
+                // Recursively merge the rest of the lists and
+                // link the result to the current node
+                first->next = merge(first->next, second);
+                return first;
+            } else {
+                // Recursively merge the rest of the lists
+                // and link the result to the current node
+                second->next = merge(first, second->next);
+                return second;
+            }
+        } else {
+            // Recursively merge the rest of the lists
+            // and link the result to the current node
+            second->next = merge(first, second->next);
+            return second;
+        }
+    } else {
+        // Recursively merge the rest of the lists
+        // and link the result to the current node
+        second->next = merge(first, second->next);
+        return second;
+    }
+
+    // Pick the smaller value between first and second nodes
+    if (first->data < second->data) {
+        // Recursively merge the rest of the lists and
+        // link the result to the current node
+        first->next = merge(first->next, second);
+        return first;
+    }
+    else {
+        // Recursively merge the rest of the lists
+        // and link the result to the current node
+        second->next = merge(first, second->next);
+        return second;
+    }
+}
+
+// Function to perform merge sort on a singly linked list
+News *MergeSort(News *head) {
+    // Base case: if the list is empty or has only one node, 
+    // it's already sorted
+    if (head == nullptr || head->next == nullptr)
+        return head;
+
+    // Split the list into two halves
+    News *second = split(head);
+
+    // Recursively sort each half
+    head = MergeSort(head);
+    second = MergeSort(second);
+
+    // Merge the two sorted halves
+    return merge(head, second);
 }
 
 /**
  * Insertion Sort Function for Linked List
  */
 void insertionSort(News*& head) {
-    if (!head || !head->next) return;
+    if (!head || !head -> next) return;
     
     News* sorted = nullptr;     // Initialize sorted linked list
     News* current = head;       // Initialize current node
     
     while (current != nullptr) {
-        News* next = current->next;  // Store next for next iteration
+        News* next = current -> next;  // Store next for next iteration
         
         // Special case for insertion at head
-        if (sorted == nullptr || compareDate(current->date, sorted->date)) {
-            current->next = sorted;
+        if (sorted == nullptr || compareDate(current -> date, sorted -> date)) {
+            current -> next = sorted;
             sorted = current;
         } else {
             News* temp = sorted;
             // Locate node before insertion point
-            while (temp->next != nullptr && !compareDate(current->date, temp->next->date)) {
-                temp = temp->next;
+            while (temp -> next != nullptr && !compareDate(current -> date, temp -> next -> date)) {
+                temp = temp -> next;
             }
-            current->next = temp->next;
-            temp->next = current;
+            current -> next = temp -> next;
+            temp -> next = current;
         }
         current = next;  // Move to next node
     }
     head = sorted;       // Update head to point to sorted list
-}
-
-/**
- * Helper function for recursive count
- * @param head The current node in the linked list
- * @param count Reference to the running count
- */
-void recursiveCountHelper(News* head, int& count) {
-    // Base case: if we reach the end of the list
-    if (head == nullptr) {
-        cout << "limit" << endl;
-        return;
-    }
-    cout << "head:" << head << "next:" << head -> next << endl;
-    // Increment count for current node
-    count++;
-    
-    // Recursive call for next node
-    recursiveCountHelper(head->next, count);
-}
-
-/**
- * Recursive function to count news articles
- * @param head The head of the linked list
- * @return The total number of nodes in the list
- */
-int recursiveCount(News* head) {
-    int count = 0;
-    recursiveCountHelper(head, count);
-    return count;
 }
 
 /**
@@ -367,49 +376,24 @@ int iterativeCount(News* head) {
     News* current = head;
     while (current != nullptr) {
         count++;
-        current = current->next;
+        current = current -> next;
     }
     return count;
 }
 
-/**
- * Calculate Total Number of News using both methods
- */
 void calcNews(News** head) {
     if (!head || !(*head)) {
         cout << "Empty list - nothing to count" << endl;
         return;
     }
 
-    // Get start time for performance measurement
-    auto start = chrono::high_resolution_clock::now();
-    
     try {
         // Iterative count
         int iterCount = iterativeCount(*head);
         cout << "Iterative count: " << iterCount << " articles" << endl;
-        
-        // Recursive count
-        int recCount = recursiveCount(*head);
-        cout << "Recursive count: " << recCount << " articles" << endl;
-        
-        // Verify both counts match
-        if (iterCount != recCount) {
-            cerr << "Warning: Count mismatch detected!" << endl;
-            cerr << "Iterative count: " << iterCount << endl;
-            cerr << "Recursive count: " << recCount << endl;
-        }
     } catch (const exception& e) {
         cerr << "Error during counting: " << e.what() << endl;
     }
-    
-    // Get end time and calculate duration
-    auto end = chrono::high_resolution_clock::now();
-    chrono::duration<double> elapsed = end - start;
-    
-    // Print performance metrics
-    cout << "\nPerformance Metrics:" << endl;
-    cout << "Time taken: " << elapsed.count() << " seconds" << endl;
 }
 
 /**
@@ -427,21 +411,6 @@ void printList(News* head) {
 }
 
 /**
- * Function to trim date
- * @param date The date string to trim
- * @return Tuple containing day, month, and year
- */
-tuple<string, string, string> trimDate(const string& date) {
-    stringstream ss(date);
-    // Trim the date
-    string day, month, year;
-    getline(ss, day, '-');
-    getline(ss, month, '-');
-    getline(ss, year);
-    return {day, month, year};
-}
-
-/**
  * Linear Search Function for Linked List
  * @param head The head of the linked list
  * @param target The target year to search for
@@ -453,21 +422,21 @@ int linearSearch(News* head, int target) {
     int invalidDates = 0;
     
     while (current != nullptr) {
-        if (!isValidDate(current->date)) {
+        if (!isValidDate(current -> date)) {
             invalidDates++;
-            current = current->next;
+            current = current -> next;
             continue;
         }
         
         try {
-            auto [day, month, year] = trimDate(current->date);
+            auto [day, month, year] = trimDate(current -> date);
             if (stoi(year) == target) {
                 totalCount++;
             }
         } catch (const exception& e) {
             invalidDates++;
         }
-        current = current->next;
+        current = current -> next;
     }
     
     if (invalidDates > 0) {
@@ -510,37 +479,37 @@ int binarySearch(News* head, int target) {
     while (start != end) {
         News* mid = getMiddle(start, end);
         if (!mid) break;
-        if(!isValidDate(mid->date)) {
+        if(!isValidDate(mid -> date)) {
             start = mid -> next;
             continue;
         }
         try {
-            auto [day, month, year] = trimDate(mid->date);
+            auto [day, month, year] = trimDate(mid -> date);
             int yearValue = stoi(year);
             
             if (yearValue == target) {
                 // Found target year, count all occurrences
                 News* temp = start;
                 while (temp != end) {
-                    if (isValidDate(temp->date)) {
-                        auto [d, m, y] = trimDate(temp->date);
+                    if (isValidDate(temp -> date)) {
+                        auto [d, m, y] = trimDate(temp -> date);
                         if (stoi(y) == target) {
                             totalCount++;
                         }
                     }
-                    temp = temp->next;
+                    temp = temp -> next;
                 }
                 return totalCount;
             } 
             else if (yearValue < target) {
-                start = mid->next;
+                start = mid -> next;
             } 
             else {
                 end = mid;
             }
         } catch (const exception& e) {
-            cerr << "Error parsing date: " << mid->date << endl;
-            start = mid->next;
+            cerr << "Error parsing date: " << mid -> date << endl;
+            start = mid -> next;
         }
     }
     
@@ -645,7 +614,7 @@ void writeCSV(const string& filename, News* newsBook) {
             << "\"" << newsBook->subject << "\","
             << "\"" << newsBook->date << "\","
             << "\"" << newsBook->identify << "\"\n";
-        newsBook = newsBook->next;
+        newsBook = newsBook -> next;
     }
 
     file.close();
@@ -685,7 +654,7 @@ int main(int argc, char const *argv[]) {
 
         // User Input
         int choice;
-        cout << "\nEnter your choice: ";
+        cout << "\nUser[~] $ ";
         cin >> choice;
         switch (choice) {
             // Sort by year
@@ -698,46 +667,55 @@ int main(int argc, char const *argv[]) {
 
                 // User Input
                 int sortChoice;
-                cout << "\nEnter your choice: ";
+                cout << "\nUser[~] $ ";
                 cin >> sortChoice;
+                auto start = chrono::high_resolution_clock::now();
                 switch (sortChoice) {
                     case 1:
                         // Quick Sort
-                        cout << "Using Quick Sort to sort..." << endl;
+                        cout << "\nUsing Quick Sort to sort..." << endl;
                         quickSort(&newsBook); // Quick Sort
                         writeCSV("QuickSort.csv", newsBook);
                         break;
 
                     case 2:
                         // Merge Sort
-                        cout << "Using Merge Sort to sort..." << endl;
-                        mergeSort(&newsBook); // Merge Sort
+                        cout << "\nUsing Merge Sort to sort..." << endl;
+                        MergeSort(newsBook); // Merge Sort
                         writeCSV("MergeSort.csv", newsBook);
                         break;
 
                     case 3:
                         // Insertion Sort
-                        cout << "Using Insertion Sort to sort..." << endl;
+                        cout << "\nUsing Insertion Sort to sort..." << endl;
                         insertionSort(newsBook); // Insertion Sort
                         writeCSV("InsertionSort.csv", newsBook);
                         break;
-                        
+
                     default:
                         cout << "Invalid choice. Please try again." << endl; break;
                 }
+                auto end = chrono::high_resolution_clock::now();
+                chrono::duration<double> elapsed = end - start;
                 cout << "News sorted successfully!" << endl;
-                printList(newsBook); // Display sorted news
+                cout << "Time taken for sorting: " << elapsed.count() << " seconds" << endl;
+                cout << "\nPrint sorted news?" << "\n1. Yes" << "\n2. No" << endl;
+                int printChoice;
+                cout << "\nUser[~] $ ";
+                cin >> printChoice;
+                if (printChoice == 1) printList(newsBook); // Display sorted news
                 break;
             }
 
             // Calculate total articles using Iterative and recursive methods
             case 2: {
-                if (!newsBook) {
-                    cout << "No news articles found." << endl;
-                    break;
-                }
+                if (!newsBook) { cout << "No news articles found." << endl; break; }
                 cout << "Calculating using iterative and recursive methods..." << endl;
+                auto start = chrono::high_resolution_clock::now();
                 calcNews(&newsBook);
+                auto end = chrono::high_resolution_clock::now();
+                chrono::duration<double> elapsed = end - start;
+                cout << "Time taken: " << elapsed.count() << " seconds" << endl;
                 break;
             }
 
@@ -747,20 +725,33 @@ int main(int argc, char const *argv[]) {
                 int year;
                 cin >> year;
                 cout << "Searching for year in " << year << " ..." << endl;
+
                 // Linear Search
+                auto start = chrono::high_resolution_clock::now();
                 int result = linearSearch(newsBook, year);
+                auto end = chrono::high_resolution_clock::now();
                 cout << "Total articles found: " << result << endl;
+                chrono::duration<double> elapsed = end - start;
+                cout << "Time taken for linear search: " << elapsed.count() << " seconds" << endl;
 
                 // Binary Search
+                auto start1 = chrono::high_resolution_clock::now();
                 int result1 = binarySearch(newsBook, year);
+                auto end1 = chrono::high_resolution_clock::now();
                 cout << "Article found: " << result1 << endl;
+                chrono::duration<double> elapsed1 = end1 - start1;
+                cout << "Time taken for binary search: " << elapsed1.count() << " seconds" << endl;
                 break;
             }
 
             // Display percentage for fake political news by every month in 2016
             case 4: {
                 cout << "Searching..." << endl;
+                auto start = chrono::high_resolution_clock::now();
                 countPoliticNews(&newsBook);
+                auto end = chrono::high_resolution_clock::now();
+                chrono::duration<double> elapsed = end - start;
+                cout << "Time taken: " << elapsed.count() << " seconds" << endl;
                 break;
             }
             default: { cout << "Invalid choice, please try again." << endl; return 0; }
@@ -771,10 +762,9 @@ int main(int argc, char const *argv[]) {
             cin.ignore();   // Ignore newline character
             cin.get();      // Wait for user input
         }
-
-        // Cleanup
-        // Free memory allocated for the linked list
-        delete news;
-        return 0;
     }
+    // Cleanup
+    // Free memory allocated for the linked list
+    delete news;
+    return 0;
 }
