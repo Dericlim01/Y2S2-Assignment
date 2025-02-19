@@ -6,10 +6,14 @@
 #include <sstream>
 #include <iomanip>
 #include <chrono>
-#include <functional>   
-#include <utility>     
+#include <functional>
+#include <utility>
+#include <windows.h>
+#include <psapi.h>
+
 using namespace std;
 using namespace std::chrono;
+
 // ----------------------------------------------------------------
 // Structures
 // ----------------------------------------------------------------
@@ -31,18 +35,39 @@ struct WordFrequency {
 int recursionDepth = 0;
 
 // ----------------------------------------------------------------
-// measureEfficiency: Measures the time taken by a function.
+// getCurrentMemoryUsage: Uses PSAPI to measure the current process memory usage.
+// Returns the working set size in bytes.
+// ----------------------------------------------------------------
+size_t getCurrentMemoryUsage() {
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        return pmc.WorkingSetSize;  // Memory in bytes
+    }
+    return 0;
+}
+
+// ----------------------------------------------------------------
+// measurePerformance: Measures the time taken and the change in memory usage 
+// by a function. It returns a pair: {time in seconds, memory used in bytes}.
 // ----------------------------------------------------------------
 template<typename Func, typename... Args>
-long long measureEfficiency(const string& operationName, Func func, Args&&... args) {
-    cout << "Starting " << operationName << endl; // Debug statement
+pair<double, size_t> measurePerformance(const string& operationName, Func func, Args&&... args) {
+    cout << "Starting " << operationName << endl;
+    size_t memoryBefore = getCurrentMemoryUsage();
     auto start = high_resolution_clock::now();
+    
+    // Call the function (for void functions, the return value is discarded)
     func(forward<Args>(args)...);
+    
     auto end = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(end - start);
-    cout << "Completed " << operationName << endl; // Debug statement
-    return duration.count();
+    size_t memoryAfter = getCurrentMemoryUsage();
+    double timeTaken = duration<double>(end - start).count(); // time in seconds
+    cout << "Completed " << operationName << endl;
+    
+    size_t memoryUsed = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+    return {timeTaken, memoryUsed};
 }
+
 // ----------------------------------------------------------------
 // loadArticles: Load articles from a CSV file into a dynamic array.
 // Returns the number of articles loaded.
@@ -164,17 +189,14 @@ void merge(News *articles, int left, int mid, int right) {
     int n1 = mid - left + 1;
     int n2 = right - mid;
     
-    // Dynamically allocate temporary arrays for left and right halves
     News* L = new News[n1];
     News* R = new News[n2];
     
-    // Copy data to temporary arrays
     for (int i = 0; i < n1; i++)
         L[i] = articles[left + i];
     for (int j = 0; j < n2; j++)
         R[j] = articles[mid + 1 + j];
     
-    // Merge the temporary arrays back into articles[left...right]
     int i = 0, j = 0, k = left;
     while (i < n1 && j < n2) {
         if (L[i].year <= R[j].year) {
@@ -187,39 +209,29 @@ void merge(News *articles, int left, int mid, int right) {
         k++;
     }
     
-    // Copy the remaining elements of L[], if any
     while (i < n1) {
         articles[k] = L[i];
         i++;
         k++;
     }
-    
-    // Copy the remaining elements of R[], if any
     while (j < n2) {
         articles[k] = R[j];
         j++;
         k++;
     }
     
-    // Free the temporary arrays
     delete[] L;
     delete[] R;
 }
 
-// ----------------------------------------------------------------
-// Merge sort function for News array (by year)
-// ----------------------------------------------------------------
 void mergeSort(News *articles, int left, int right) {
     if (left < right) {
         int mid = left + (right - left) / 2;
-        // Sort first and second halves recursively
         mergeSort(articles, left, mid);
         mergeSort(articles, mid + 1, right);
-        // Merge the sorted halves
         merge(articles, left, mid, right);
     }
 }
-
 
 int partition(News *articles, int left, int right) {
     int pivot = articles[right].year;
@@ -274,18 +286,8 @@ void traverseAndCountArticles(News *articles, int count) {
 }
 
 // ----------------------------------------------------------------
-// Option 2: Counting Articles
+// Option 2: Counting Articles (Iterative Only)
 // ----------------------------------------------------------------
-void countArticlesRecursive(News *articles, int count, int index, int &fakeCount, int &trueCount) {
-    cout << "Recursive count at index: " << index << endl; // Debug statement
-    if (index >= count) return;
-    if (articles[index].isTrue)
-        trueCount++;
-    else
-        fakeCount++;
-    countArticlesRecursive(articles, count, index + 1, fakeCount, trueCount);
-}
-
 void countArticlesIterative(News *articles, int count, int &fakeCount, int &trueCount) {
     fakeCount = 0;
     trueCount = 0;
@@ -330,7 +332,7 @@ int binarySearchByYear(News *articles, int left, int right, int targetYear) {
 }
 
 // ----------------------------------------------------------------
-// Option 4: Fake Political News Percentage by Month (2016)
+// Option 4: Percentage for Fake Political News by Month (Linear Only)
 // ----------------------------------------------------------------
 void percentageByMonthLinear(News *articles, int count) {
     int total[13] = {0};  // months 1..12
@@ -351,15 +353,11 @@ void percentageByMonthLinear(News *articles, int count) {
     for (int m = 1; m <= 12; m++) {
         if (total[m] > 0) {
             double percentage = (static_cast<double>(fake[m]) / total[m]) * 100.0;
-            // Number of stars is the integer part of the percentage
             int starCount = static_cast<int>(percentage);
-
             cout << "Month " << m << ": ";
-            // Print stars
             for (int s = 0; s < starCount; s++) {
                 cout << "*";
             }
-            // Print percentage with 4 decimal places (optional)
             cout << " " << fixed << setprecision(4) << percentage << "%" << endl;
         } else {
             cout << "Month " << m << ": No data" << endl;
@@ -367,75 +365,12 @@ void percentageByMonthLinear(News *articles, int count) {
     }
 }
 
-
-void percentageByMonthSorting(News *articles, int count) {
-    // Filter political news in 2016
-    int filteredCount = 0;
-    News* filtered = new News[count]; // worst-case size
-    for (int i = 0; i < count; i++) {
-        if (articles[i].year == 2016 && articles[i].subject.find("politics") != string::npos) {
-            filtered[filteredCount++] = articles[i];
-        }
-    }
-
-    // Helper lambda to extract month from date
-    auto getMonth = [](const News &article) -> int {
-        if (article.date.size() >= 5) {
-            try {
-                return stoi(article.date.substr(3, 2));
-            } catch(...) {
-                return 0;
-            }
-        }
-        return 0;
-    };
-
-    // Sort by month using a simple bubble sort
-    for (int i = 0; i < filteredCount - 1; i++) {
-        for (int j = 0; j < filteredCount - i - 1; j++) {
-            if (getMonth(filtered[j]) > getMonth(filtered[j+1])) {
-                swap(filtered[j], filtered[j+1]);
-            }
-        }
-    }
-
-    cout << "=== Percentage for Fake Political News by Month (Sorting & Grouping) ===" << endl;
-
-    int i = 0;
-    while (i < filteredCount) {
-        int month = getMonth(filtered[i]);
-        int total = 0;
-        int fakeCount = 0;
-
-        // Count how many articles are in this month
-        while (i < filteredCount && getMonth(filtered[i]) == month) {
-            total++;
-            if (!filtered[i].isTrue)
-                fakeCount++;
-            i++;
-        }
-
-        double percentage = (static_cast<double>(fakeCount) / total) * 100.0;
-        int starCount = static_cast<int>(percentage);
-
-        cout << "Month " << month << ": ";
-        // Print stars
-        for (int s = 0; s < starCount; s++) {
-            cout << "*";
-        }
-        // Print percentage
-        cout << " " << fixed << setprecision(4) << percentage << "%" << endl;
-    }
-    delete[] filtered;
-}
-
-
 // ----------------------------------------------------------------
 // Main Menu Loop
 // ----------------------------------------------------------------
 int main() {
     News* articles = nullptr;
-    int count = loadArticles("DataCleaned.csv", articles);
+    int count = loadArticles("DataCleaned.txt", articles);
     if (count == 0) {
         cerr << "No articles loaded." << endl;
         return 1;
@@ -445,9 +380,9 @@ int main() {
     do {
         cout << "\n==================== MAIN MENU ====================" << endl;
         cout << "1. Sort the news articles by year" << endl;
-        cout << "2. Calculate total articles (fake and true)" << endl;
+        cout << "2. Calculate total articles (fake and true) (Iterative Count Only)" << endl;
         cout << "3. Search article by year" << endl;
-        cout << "4. Display percentage for fake political news by month in 2016" << endl;
+        cout << "4. Display percentage for fake political news by month in 2016 (Linear Scan)" << endl;
         cout << "5. Exit" << endl;
         cout << "Enter your option: ";
         cin >> mainChoice;
@@ -463,25 +398,29 @@ int main() {
             
             // Create a temporary copy for sorting
             News *articlesCopy = new News[count];
+            string sortName;
             for (int i = 0; i < count; i++)
                 articlesCopy[i] = articles[i];
-            long long timeTaken = 0;
-            size_t memoryUsed = count * sizeof(News);
+                
+            pair<double, size_t> result; // {time in seconds, memory used in bytes}
             
             switch (sortChoice) {
                 case 1:
-                    timeTaken = measureEfficiency("Merge Sort", mergeSort, articlesCopy, 0, count - 1);
+                    result = measurePerformance("Merge Sort", mergeSort, articlesCopy, 0, count - 1);
                     cout << "\n=== Sorted Articles using Merge Sort ===" << endl;
+                    sortName = "Merge Sort";
                     break;
                 case 2:
                     recursionDepth = 0; // reset recursion depth
-                    timeTaken = measureEfficiency("Quick Sort", quickSort, articlesCopy, 0, count - 1);
+                    result = measurePerformance("Quick Sort", quickSort, articlesCopy, 0, count - 1);
                     cout << "\n=== Sorted Articles using Quick Sort ===" << endl;
                     cout << "Quick Sort Recursion Depth: " << recursionDepth << endl;
+                    sortName = "Quick Sort";
                     break;
                 case 3:
-                    timeTaken = measureEfficiency("Insertion Sort", insertionSort, articlesCopy, count);
+                    result = measurePerformance("Insertion Sort", insertionSort, articlesCopy, count);
                     cout << "\n=== Sorted Articles using Insertion Sort ===" << endl;
+                    sortName = "Insertion Sort";
                     break;
                 default:
                     cout << "Invalid sorting option." << endl;
@@ -490,36 +429,19 @@ int main() {
             }
             
             traverseAndCountArticles(articlesCopy, count);
-            cout << "Time Taken: " << timeTaken << " µs" << endl;
-            cout << "Memory Used: " << memoryUsed << " bytes" << endl;
+            cout << "==================== " << sortName << " ====================" << endl;
+            cout << "Time Taken: " << result.first << " s" << endl;
+            cout << "Memory Used: " << result.second << " bytes" << endl;
             delete[] articlesCopy;
             
-
         } else if (mainChoice == 2) {
-            cout << "Starting option 2..." << endl;
-        
-            int fakeCountRec = 0, trueCountRec = 0;
-            cout << "Before Recursive Count" << endl;
-            long long timeRec = measureEfficiency("Recursive Count", countArticlesIterative, articles, count, 
-                                                    std::ref(fakeCountRec), std::ref(trueCountRec));
-            cout << "After Recursive Count" << endl;
-            cout << "Recursive count completed." << endl;
-        
+            cout << "Starting Option 2 (Iterative Count)..." << endl;
             int fakeCountIter = 0, trueCountIter = 0;
-            cout << "Before Iterative Count" << endl;
-            long long timeIter = measureEfficiency("Iterative Count", countArticlesIterative, articles, count, 
-                                                     std::ref(fakeCountIter), std::ref(trueCountIter));
-            cout << "After Iterative Count" << endl;
-            cout << "Iterative count completed." << endl;
-        
-            cout << "\n=== Total Articles Count ===" << endl;
-            cout << "Recursive Count: Total Articles: " << count 
-                 << ", TRUE: " << trueCountRec << ", FAKE: " << fakeCountRec 
-                 << ", Time: " << timeRec << " µs" << endl;
-            cout << "Iterative Count: Total Articles: " << count 
+            auto iterResult = measurePerformance("Iterative Count", countArticlesIterative, articles, count, std::ref(fakeCountIter), std::ref(trueCountIter));
+            cout << "\n=== Total Articles Count (Iterative) ===" << endl;
+            cout << "Total Articles: " << count 
                  << ", TRUE: " << trueCountIter << ", FAKE: " << fakeCountIter 
-                 << ", Time: " << timeIter << " µs" << endl;
-            
+                 << ", Time: " << iterResult.first << " s, Memory Diff: " << iterResult.second << " bytes" << endl;
             
         } else if (mainChoice == 3) {
             int targetYear;
@@ -532,7 +454,7 @@ int main() {
             auto startLinear = high_resolution_clock::now();
             int* linearIndices = linearSearchByYear(articles, count, targetYear, matchCountLinear);
             auto endLinear = high_resolution_clock::now();
-            long long timeLinear = duration_cast<microseconds>(endLinear - startLinear).count();
+            double timeLinear = duration<double>(endLinear - startLinear).count();
             if (matchCountLinear == 0) {
                 cout << "No articles found for year " << targetYear << endl;
             } else {
@@ -542,7 +464,7 @@ int main() {
                     cout << "Title: " << articles[idx].title << ", Year: " << articles[idx].year << endl;
                 }
             }
-            cout << "Linear Search Time: " << timeLinear << " µs" << endl;
+            cout << "Linear Search Time: " << timeLinear << " s" << endl;
             delete[] linearIndices;
             
             // Binary Search (requires sorted copy)
@@ -554,7 +476,7 @@ int main() {
             auto startBinary = high_resolution_clock::now();
             int foundIndex = binarySearchByYear(articlesSorted, 0, count - 1, targetYear);
             auto endBinary = high_resolution_clock::now();
-            long long timeBinary = duration_cast<microseconds>(endBinary - startBinary).count();
+            double timeBinary = duration<double>(endBinary - startBinary).count();
             if (foundIndex == -1) {
                 cout << "\n=== Binary Search Results (on sorted array) ===" << endl;
                 cout << "No articles found for year " << targetYear << endl;
@@ -577,17 +499,16 @@ int main() {
                     int idx = binaryIndices[i];
                     cout << "Title: " << articlesSorted[idx].title << ", Year: " << articlesSorted[idx].year << endl;
                 }
-                cout << "Binary Search Time: " << timeBinary << " µs" << endl;
-                cout << "Linear Search Time: " << timeLinear << " µs" << endl;
+                cout << "Binary Search Time: " << timeBinary << " s" << endl;
+                cout << "Linear Search Time: " << timeLinear << " s" << endl;
                 delete[] binaryIndices;
             }
             delete[] articlesSorted;
             
         } else if (mainChoice == 4) {
-            long long timeLinear = measureEfficiency("Percentage by Month (Linear)", percentageByMonthLinear, articles, count);
-            long long timeSorting = measureEfficiency("Percentage by Month (Sorting)", percentageByMonthSorting, articles, count);
-            cout << "\nTime Taken (Linear Scan): " << timeLinear << " µs" << endl;
-            cout << "Time Taken (Sorting & Grouping): " << timeSorting << " µs" << endl;
+            auto linearRes = measurePerformance("Percentage by Month (Linear)", percentageByMonthLinear, articles, count);
+            cout << "\n=== Fake Political News Percentage by Month (Linear Scan) ===" << endl;
+            cout << "Time Taken: " << linearRes.first << " s, Memory Diff: " << linearRes.second << " bytes" << endl;
             
         } else if (mainChoice == 5) {
             cout << "Exiting program." << endl;

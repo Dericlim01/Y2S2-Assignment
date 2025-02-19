@@ -369,7 +369,7 @@ long long measureEfficiency(const string& operationName, Func func, Args&&... ar
 int main() {
     News* articles = nullptr;
     // Load articles from the CSV file.
-    int count = loadArticles("DataCleaned.csv", articles);
+    int count = loadArticles("DataCleaned.txt", articles);
     if (count == 0) {
         cerr << "No articles loaded." << endl;
         return 1;
