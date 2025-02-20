@@ -370,7 +370,7 @@ void percentageByMonthLinear(News *articles, int count) {
 // ----------------------------------------------------------------
 int main() {
     News* articles = nullptr;
-    int count = loadArticles("DataCleaned.txt", articles);
+    int count = loadArticles("DataCleaned.csv", articles);
     if (count == 0) {
         cerr << "No articles loaded." << endl;
         return 1;

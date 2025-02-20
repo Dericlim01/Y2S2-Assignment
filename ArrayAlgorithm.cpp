@@ -1,3 +1,5 @@
+#include <windows.h>
+#include <psapi.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -5,6 +7,7 @@
 #include <cctype>
 #include <sstream>
 #include <chrono> // For time measurement
+
 using namespace std;
 using namespace std::chrono;
 
@@ -26,6 +29,18 @@ struct WordFrequency {
 
 // Global variable to track recursion depth in Quick Sort
 int recursionDepth = 0;
+
+// ---------------------------------------------------------
+// getProcessMemoryUsage: Uses PSAPI to return the current
+// working set size (physical memory used) of this process.
+// ---------------------------------------------------------
+size_t getProcessMemoryUsage() {
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        return pmc.WorkingSetSize; // Returns memory usage in bytes.
+    }
+    return 0;
+}
 
 // ---------------------------------------------------------
 // Function: loadArticles
@@ -364,109 +379,117 @@ long long measureEfficiency(const string& operationName, Func func, Args&&... ar
 
 // ---------------------------------------------------------
 // main: Entry point of the program.
-// Prompts the user for an option and calls the corresponding function.
+// Prompts the user for an option in a loop until exit is chosen.
 // ---------------------------------------------------------
 int main() {
     News* articles = nullptr;
     // Load articles from the CSV file.
-    int count = loadArticles("DataCleaned.txt", articles);
+    int count = loadArticles("DataCleaned.csv", articles);
     if (count == 0) {
         cerr << "No articles loaded." << endl;
         return 1;
     }
-
-    string option;
     
-    // Display options to the user.
-    cout << "Enter Your Option:" << endl
-         << "1. Sort the news articles by year and display all articles" << endl
-         << "2. Percentage of political news articles from 2016" << endl
-         << "3. Most frequently words used in fake government news" << endl
-         << "Option: ";
-    cin >> option;
-    
-    if (option == "1") {
-        // Use Quick Sort to sort articles by year and then traverse all articles.
-        long long sortingTime = measureEfficiency("Quick Sort", quickSort, articles, 0, count - 1);
-        double sortingTimeSec = sortingTime / 1e6;
-        traverseAndCountArticles(articles, count);
+    bool running = true;
+    while (running) {
+        cout << "\nEnter Your Option:" << endl
+             << "1. Sort the news articles by year and display all articles" << endl
+             << "2. Percentage of political news articles from 2016" << endl
+             << "3. Most frequently words used in fake government news" << endl
+             << "4. Exit" << endl
+             << "Option: ";
+             
+        string option;
+        cin >> option;
         
-        // Calculate memory usage based on total articles.
-        size_t memoryUsed = count * sizeof(News);
-    
-        // Display results.
-        cout << "=== Quick Sort (All Articles) ===" << endl;
-        cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
-        cout << "Memory Used by Array: " << memoryUsed << " bytes" << endl;
-        cout << "Recursion Depth: " << recursionDepth << endl;
-    
-    } else if (option == "2") {
-        // Use Insertion Sort on the articles.
-        long long sortingTime = measureEfficiency("Insertion Sort", insertionSort, articles, count);
-        double sortingTimeSec = sortingTime / 1e6;
-        calculateFakePoliticalNewsPercentage(articles, count);
-    
-        // Calculate memory usage based on total articles.
-        size_t memoryUsed = count * sizeof(News);
-    
-        // Display results.
-        cout << "=== Insertion Sort (All Articles) and Linear Search ===" << endl;
-        cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
-        cout << "Memory Used by Array: " << memoryUsed << " bytes" << endl;
-    
-    } else if (option == "3") {
-        int topN;
-        cout << "Enter the number of top frequent words to display: ";
-        cin >> topN;
-    
-        // Create a WordFrequency array for word frequency analysis
-        const int MAX_WORDS = 100000;
-        WordFrequency* wordFreq = new WordFrequency[MAX_WORDS];
-        int wordCount = 0;
-    
-        // Populate the word frequency array.
-        for (int i = 0; i < count; i++) {
-            if (!articles[i].isTrue && articles[i].subject.find("Government News") != string::npos) {
-                const int MAX_TOKENS = 10000;
-                string* tokens = new string[MAX_TOKENS];
-                int tokenCount;
-                tokenize(articles[i].text, tokens, tokenCount);
-                for (int j = 0; j < tokenCount; j++) {
-                    int index = linearSearch(wordFreq, wordCount, tokens[j]);
-                    if (index != -1) {
-                        wordFreq[index].count++;
-                    } else {
-                        insertAtLastPosition(wordFreq, wordCount, tokens[j]);
+        // Optional: Get a baseline process memory usage.
+        size_t baseMemory = getProcessMemoryUsage();
+        
+        if (option == "1") {
+            long long sortingTime = measureEfficiency("Quick Sort", quickSort, articles, 0, count - 1);
+            double sortingTimeSec = sortingTime / 1e6;
+            traverseAndCountArticles(articles, count);
+        
+            // Calculated memory used by the array.
+            size_t arrayMemory = count * sizeof(News);
+            // Get updated process memory usage.
+            size_t processMemory = getProcessMemoryUsage();
+        
+            cout << "\n=== Quick Sort (All Articles) ===" << endl;
+            cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
+            cout << "Memory Used by Array (Calculated): " << arrayMemory << " bytes" << endl;
+            cout << "Process Memory Usage (Working Set): " << processMemory << " bytes" << endl;
+            cout << "Recursion Depth: " << recursionDepth << endl;
+        
+        } else if (option == "2") {
+            long long sortingTime = measureEfficiency("Insertion Sort", insertionSort, articles, count);
+            double sortingTimeSec = sortingTime / 1e6;
+            calculateFakePoliticalNewsPercentage(articles, count);
+        
+            size_t arrayMemory = count * sizeof(News);
+            size_t processMemory = getProcessMemoryUsage();
+        
+            cout << "\n=== Insertion Sort (All Articles) and Linear Search ===" << endl;
+            cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
+            cout << "Memory Used by Array (Calculated): " << arrayMemory << " bytes" << endl;
+            cout << "Process Memory Usage (Working Set): " << processMemory << " bytes" << endl;
+        
+        } else if (option == "3") {
+            int topN;
+            cout << "Enter the number of top frequent words to display: ";
+            cin >> topN;
+        
+            const int MAX_WORDS = 100000;
+            WordFrequency* wordFreq = new WordFrequency[MAX_WORDS];
+            int wordCount = 0;
+        
+            // Populate the word frequency array.
+            for (int i = 0; i < count; i++) {
+                if (!articles[i].isTrue && articles[i].subject.find("Government News") != string::npos) {
+                    const int MAX_TOKENS = 10000;
+                    string* tokens = new string[MAX_TOKENS];
+                    int tokenCount;
+                    tokenize(articles[i].text, tokens, tokenCount);
+                    for (int j = 0; j < tokenCount; j++) {
+                        int index = linearSearch(wordFreq, wordCount, tokens[j]);
+                        if (index != -1) {
+                            wordFreq[index].count++;
+                        } else {
+                            insertAtLastPosition(wordFreq, wordCount, tokens[j]);
+                        }
                     }
+                    delete[] tokens;
                 }
-                delete[] tokens;  // Free tokens array.
             }
+        
+            long long sortingTime = measureEfficiency("Selection Sort", selectionSort, wordFreq, wordCount);
+            double sortingTimeSec = sortingTime / 1e6;
+        
+            auto startSearch = high_resolution_clock::now();
+            cout << "\nTop " << topN << " most frequent words in fake government news:" << endl;
+            for (int i = 0; i < topN && i < wordCount; i++) {
+                cout << wordFreq[i].word << ": " << wordFreq[i].count << " occurrences" << endl;
+            }
+            auto endSearch = high_resolution_clock::now();
+            long long searchingTime = duration_cast<microseconds>(endSearch - startSearch).count();
+            double searchingTimeSec = searchingTime / 1e6;
+        
+            size_t arrayMemory = wordCount * sizeof(WordFrequency);
+            size_t processMemory = getProcessMemoryUsage();
+        
+            cout << "\n=== Selection Sort (Word Frequency Analysis) ===" << endl;
+            cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
+            cout << "Searching Time: " << searchingTime << " µs (" << searchingTimeSec << " seconds)" << endl;
+            cout << "Memory Used by Word Frequency Array (Calculated): " << arrayMemory << " bytes" << endl;
+            cout << "Process Memory Usage (Working Set): " << processMemory << " bytes" << endl;
+        
+            delete[] wordFreq;
+        } else if (option == "4") {
+            cout << "Exiting program..." << endl;
+            running = false;
+        } else {
+            cout << "Invalid option. Please try again." << endl;
         }
-    
-        // Use Selection Sort for Option 3.
-        long long sortingTime = measureEfficiency("Selection Sort", selectionSort, wordFreq, wordCount);
-        double sortingTimeSec = sortingTime / 1e6;
-        auto startSearch = high_resolution_clock::now();
-        cout << "Top " << topN << " most frequent words in fake government news:" << endl;
-        for (int i = 0; i < topN && i < wordCount; i++) {
-            cout << wordFreq[i].word << ": " << wordFreq[i].count << " occurrences" << endl;
-        }
-        auto endSearch = high_resolution_clock::now();
-        long long searchingTime = duration_cast<microseconds>(endSearch - startSearch).count();
-        double searchingTimeSec = searchingTime / 1e6;
-    
-        // Calculate memory usage.
-        size_t memoryUsed = wordCount * sizeof(WordFrequency);
-    
-        // Display results.
-        cout << "=== Selection Sort (Word Frequency Analysis) ===" << endl;
-        cout << "Sorting Time: " << sortingTime << " µs (" << sortingTimeSec << " seconds)" << endl;
-        cout << "Searching Time: " << searchingTime << " µs (" << searchingTimeSec << " seconds)" << endl;
-        cout << "Memory Used by Array: " << memoryUsed << " bytes" << endl;
-    
-        delete[] wordFreq;
-    } else {
-        cout << "Invalid option." << endl;
     }
     
     // Free the dynamically allocated memory for articles.
