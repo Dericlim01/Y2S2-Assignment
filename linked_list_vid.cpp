@@ -19,6 +19,19 @@ struct News {
 };
 
 /**
+ * Helper functions to calculate memory usage
+ */
+struct MemoryStats {
+    size_t structSize;     // Size of News struct nodes
+    size_t stringSize;     // Size of string contents
+    size_t pointerSize;    // Size of pointers
+    size_t totalSize;      // Total memory usage
+    double timeElapsed;    // Time taken for operation
+
+    MemoryStats() : structSize(0), stringSize(0), pointerSize(0), totalSize(0), timeElapsed(0) {}
+};
+
+/**
  * Insert at End of Linked List
  */
 void insertAtEnd(News** head, string title, string text, string subject, string date, string identify) {
@@ -138,14 +151,15 @@ bool isValidDate(const string& date) {
 
 /**
  * Helper function to compare dates in dd-mm-yyyy format
- * Returns true if date1 <= date2
+ * @param date1 The first date string
+ * @param date2 The second date string
+ * @return true if date1 <= date2
  */
 bool compareDate(const string& date1, const string& date2) {
     //cout << "Comparing dates: " << date1 << " and " << date2 << endl;
     int day1, month1, year1, day2, month2, year2;
     char dash;  // for the '-' separator
     stringstream ss1(date1), ss2(date2);
-    cout << ss1.str() << " " << ss2.str() << endl;
     
     ss1 >> day1 >> dash >> month1 >> dash >> year1;
     ss2 >> day2 >> dash >> month2 >> dash >> year2;
@@ -157,23 +171,32 @@ bool compareDate(const string& date1, const string& date2) {
 
 /**
  * Partition function for Quick Sort
+ * @param head The head of the linked list
+ * @param end The end of the linked list
+ * @param newHead The new head of the linked list
+ * @param newEnd The new end of the linked list
+ * @return the pivot node
  */
 News* partition(News* head, News* end, News** newHead, News** newEnd) {
     News* pivot = end;
     News* prev = nullptr, *cur = head, *tail = pivot;
 
     while (cur != pivot) {
-        if (compareDate(cur -> date, pivot -> date)) {  // Changed comparison
-            if ((*newHead) == nullptr) (*newHead) = cur;
-            prev = cur;
-            cur = cur -> next;
+        if (isValidDate(cur -> date) && isValidDate(pivot -> date)) {
+            if (compareDate(cur -> date, pivot -> date)) {  // Changed comparison
+                if ((*newHead) == nullptr) (*newHead) = cur;
+                prev = cur;
+                cur = cur -> next;
+            } else {
+                if (prev) prev -> next = cur -> next;
+                News* tmp = cur -> next;
+                cur -> next = nullptr;
+                tail -> next = cur;
+                tail = cur;
+                cur = tmp;
+            }
         } else {
-            if (prev) prev -> next = cur -> next;
-            News* tmp = cur -> next;
-            cur -> next = nullptr;
-            tail -> next = cur;
-            tail = cur;
-            cur = tmp;
+            cur = cur -> next;
         }
     }
     if ((*newHead) == nullptr) (*newHead) = pivot;
@@ -183,6 +206,9 @@ News* partition(News* head, News* end, News** newHead, News** newEnd) {
 
 /**
  * Recursive Quick Sort Function
+ * @param head The head of the linked list
+ * @param end The end of the linked list
+ * @return the new head of the linked list
  */
 News* quickSortRec(News* head, News* end) {
     if (!head || head == end) return head;
@@ -203,6 +229,7 @@ News* quickSortRec(News* head, News* end) {
 
 /**
  * QuickSort driver function
+ * @param headRef The head of the linked list
  */
 void quickSort(News** headRef) {
     if (!headRef || !(*headRef) || !(*headRef) -> next) return;
@@ -236,15 +263,15 @@ News *split(News *head) {
     // Move fast pointer two steps and slow pointer
     // one step until fast reaches the end
     while (fast != nullptr && fast->next != nullptr) {
-        fast = fast->next->next;
+        fast = fast -> next -> next;
         if (fast != nullptr) {
-            slow = slow->next;
+            slow = slow -> next;
         }
     }
 
     // Split the list into two halves
-    News *temp = slow->next;
-    slow->next = nullptr;
+    News *temp = slow -> next;
+    slow -> next = nullptr;
     return temp;
 }
 
@@ -256,9 +283,9 @@ News *merge(News *first, News *second) {
 
     int day_first, day_second, month_first, month_second, year_first, year_second;
     try {
-        cout << "Comparing dates: " << first->date << " and " << second->date << endl;
-        auto [day1, month1, year1] = trimDate(first->date);
-        auto [day2, month2, year2] = trimDate(second->date);
+        cout << "Comparing dates: " << first -> date << " and " << second -> date << endl;
+        auto [day1, month1, year1] = trimDate(first -> date);
+        auto [day2, month2, year2] = trimDate(second -> date);
         year_first = stoi(year1);
         year_second = stoi(year2);
         month_first = stoi(month1);
@@ -272,7 +299,7 @@ News *merge(News *first, News *second) {
     if (year_first < year_second) {
         // Recursively merge the rest of the lists and
         // link the result to the current node
-        first->next = merge(first->next, second);
+        first -> next = merge(first -> next, second);
         return first;
     } else if (year_first == year_second) {
         if (month_first < month_second) {
@@ -284,38 +311,38 @@ News *merge(News *first, News *second) {
             if (day_first < day_second) {
                 // Recursively merge the rest of the lists and
                 // link the result to the current node
-                first->next = merge(first->next, second);
+                first -> next = merge(first -> next, second);
                 return first;
             } else {
                 // Recursively merge the rest of the lists
                 // and link the result to the current node
-                second->next = merge(first, second->next);
+                second -> next = merge(first, second -> next);
                 return second;
             }
         } else {
             // Recursively merge the rest of the lists
             // and link the result to the current node
-            second->next = merge(first, second->next);
+            second -> next = merge(first, second->next);
             return second;
         }
     } else {
         // Recursively merge the rest of the lists
         // and link the result to the current node
-        second->next = merge(first, second->next);
+        second -> next = merge(first, second->next);
         return second;
     }
 
     // Pick the smaller value between first and second nodes
-    if (first->data < second->data) {
+    if (first -> data < second -> data) {
         // Recursively merge the rest of the lists and
         // link the result to the current node
-        first->next = merge(first->next, second);
+        first -> next = merge(first->next, second);
         return first;
     }
     else {
         // Recursively merge the rest of the lists
         // and link the result to the current node
-        second->next = merge(first, second->next);
+        second -> next = merge(first, second->next);
         return second;
     }
 }
@@ -324,7 +351,7 @@ News *merge(News *first, News *second) {
 News *MergeSort(News *head) {
     // Base case: if the list is empty or has only one node, 
     // it's already sorted
-    if (head == nullptr || head->next == nullptr)
+    if (head == nullptr || head -> next == nullptr)
         return head;
 
     // Split the list into two halves
@@ -340,6 +367,7 @@ News *MergeSort(News *head) {
 
 /**
  * Insertion Sort Function for Linked List
+ * @param head The head of the linked list
  */
 void insertionSort(News*& head) {
     if (!head || !head -> next) return;
@@ -349,7 +377,7 @@ void insertionSort(News*& head) {
     
     while (current != nullptr) {
         News* next = current -> next;  // Store next for next iteration
-        
+
         // Special case for insertion at head
         if (sorted == nullptr || compareDate(current -> date, sorted -> date)) {
             current -> next = sorted;
@@ -370,43 +398,38 @@ void insertionSort(News*& head) {
 
 /**
  * Iterative function to count news articles
+ * @param head The head of the linked list
  */
-int iterativeCount(News* head) {
+void iterativeCount(News* head) {
     int count = 0;
     News* current = head;
     while (current != nullptr) {
         count++;
         current = current -> next;
     }
-    return count;
-}
-
-void calcNews(News** head) {
-    if (!head || !(*head)) {
-        cout << "Empty list - nothing to count" << endl;
-        return;
-    }
-
-    try {
-        // Iterative count
-        int iterCount = iterativeCount(*head);
-        cout << "Iterative count: " << iterCount << " articles" << endl;
-    } catch (const exception& e) {
-        cerr << "Error during counting: " << e.what() << endl;
-    }
+    cout << "Total news articles: " << count << endl;
 }
 
 /**
  * Print all News
+ * @param head The head of the linked list
  */
 void printList(News* head) {
-    while (head) {
-        cout << "Title: " << head -> title
-            << "Text: " << head -> text
-            << "Subject: " << head -> subject
-            << "Date: " << head -> date
-            << "Identify: " << head -> identify << endl;
-        head = head -> next;
+    cout << "News sorted successfully!" << endl;
+    cout << "\nPrint sorted news?" << "\n1. Yes" << "\n2. No" << endl;
+    int printChoice;
+    cout << "\nEnter Choice: ";
+    cin >> printChoice;
+    if (printChoice == 1) {// Display sorted news
+        while (head) {
+            cout << "Title: " << head -> title
+                << "\nText: " << head -> text
+                << "\nSubject: " << head -> subject
+                << "\nDate: " << head -> date
+                << "\nIdentify: " << head -> identify
+                << "\n======================================" << endl;
+            head = head -> next;
+        }
     }
 }
 
@@ -439,10 +462,6 @@ int linearSearch(News* head, int target) {
         current = current -> next;
     }
     
-    if (invalidDates > 0) {
-        cerr << "Warning: Found " << invalidDates << " invalid date(s) during search" << endl;
-    }
-    
     return totalCount;
 }
 
@@ -451,6 +470,7 @@ int linearSearch(News* head, int target) {
  * This uses the fast and slow pointer technique
  * @param start The start node of the linked list
  * @param end The end node of the linked list
+ * @return the middle node of the linked list
  */
 News* getMiddle(News* start, News* end) {
     if (start == nullptr) return nullptr;
@@ -553,6 +573,7 @@ void displayNewsPlot(const unordered_map<int, int>& fakeNewsCount, const unorder
 
 /**
  * Calculate Total Number of Political News
+ * @param news The head of the linked list
  */
 void countPoliticNews(News** news) {
     News* currentNews = *news;
@@ -578,8 +599,13 @@ void countPoliticNews(News** news) {
         }
         currentNews = currentNews -> next;
     }
+
+    // Display the news plot
+    cout << "\nPercentage of fake Political News Article by every month in 2016" << endl;
+    displayNewsPlot(fakeNewsCount, totalNewsCount);
+
     // Print the results
-    cout << "Total number of political news articles: " << totalPoliticalNews << endl;
+    cout << "\nTotal number of political news articles: " << totalPoliticalNews << endl;
     cout << "Total number of political news articles in 2016: " << fakePoliticalNews2016 << endl;
     // If total news is greater than 0
     if (totalPoliticalNews > 0) {
@@ -589,10 +615,68 @@ void countPoliticNews(News** news) {
     } else { // No political news articles found
         cout << "No political news articles found" << endl;
     }
+}
 
-    // Display the news plot
-    cout << "Percentage of fake Political News Article by every month in 2016" << endl;
-    displayNewsPlot(fakeNewsCount, totalNewsCount);
+/**
+ * Calculate memory usage for a single node
+ * @param node Pointer to News node
+ * @return Memory usage in bytes
+ */
+size_t calculateNodeMemory(News* node) {
+    if (!node) return 0;
+    
+    size_t memory = sizeof(News);  // Struct size
+    // String content sizes
+    memory += node -> title.capacity();
+    memory += node -> text.capacity();
+    memory += node -> subject.capacity();
+    memory += node -> date.capacity();
+    memory += node -> identify.capacity();
+    // Pointer sizes
+    memory += sizeof(News*) * 2;  // next and head pointers
+    
+    return memory;
+}
+
+/**
+ * Calculate detailed memory statistics for a linked list
+ * @param head Pointer to head of linked list
+ * @return MemoryStats struct with detailed memory information
+ */
+MemoryStats calculateDetailedMemory(News* head) {
+    MemoryStats stats;
+    News* current = head;
+    
+    while (current) {
+        stats.structSize += sizeof(News);
+        stats.stringSize += current -> title.capacity() +
+                            current -> text.capacity() +
+                            current -> subject.capacity() +
+                            current -> date.capacity() +
+                            current -> identify.capacity();
+        stats.pointerSize += sizeof(News*) * 2;  // next and head pointers
+        current = current->next;
+    }
+    
+    stats.totalSize = stats.structSize + stats.stringSize + stats.pointerSize;
+    return stats;
+}
+
+/**
+ * Display memory statistics in human-readable format
+ * @param stats MemoryStats struct containing memory information
+ * @param operationName Name of the operation being measured
+ */
+void displayMemoryStats(const MemoryStats& stats, const string& operationName) {
+    cout << "\nMemory Usage for " << operationName << ":" << endl;
+    cout << "Structure Size: " << stats.structSize << " B" << endl;
+    cout << "String Content: " << stats.stringSize << " B" << endl;
+    cout << "Pointer Overhead: " << stats.pointerSize << " B" << endl;
+    cout << "Total Memory: " << stats.totalSize << " B" << endl;
+    if (stats.timeElapsed > 0) {
+        cout << "Time Elapsed: " << stats.timeElapsed << " seconds" << endl;
+    }
+    cout << "----------------------------------------" << endl;
 }
 
 /**
@@ -609,11 +693,11 @@ void writeCSV(const string& filename, News* newsBook) {
 
     // Write the data
     while (newsBook) {
-        file << "\"" << newsBook->title << "\","
-            << "\"" << newsBook->text << "\","
-            << "\"" << newsBook->subject << "\","
-            << "\"" << newsBook->date << "\","
-            << "\"" << newsBook->identify << "\"\n";
+        file << "\"" << newsBook -> title << "\","
+            << "\"" << newsBook -> text << "\","
+            << "\"" << newsBook -> subject << "\","
+            << "\"" << newsBook -> date << "\","
+            << "\"" << newsBook -> identify << "\"\n";
         newsBook = newsBook -> next;
     }
 
@@ -644,7 +728,6 @@ int main(int argc, char const *argv[]) {
 
     bool running = true;
     while (running) {
-
         // User Menu
         cout << "<<< User Menu >>>" << endl;
         cout << "1. Sort By Year and display in ascending order" << endl;
@@ -654,111 +737,111 @@ int main(int argc, char const *argv[]) {
 
         // User Input
         int choice;
-        cout << "\nUser[~] $ ";
+        cout << "\nEnter Choice: ";
         cin >> choice;
         switch (choice) {
             // Sort by year
             case 1: {
-                // Compare Quick Sort, merge sort, insertion sort
+                // Quick Sort, insertion sort
                 cout << "\nSorting Menu" << endl;
                 cout << "1. Quick Sort" << endl;
-                cout << "2. Merge Sort" << endl;
-                cout << "3. Insertion Sort" << endl;
+                cout << "2. Insertion Sort" << endl;
 
                 // User Input
                 int sortChoice;
-                cout << "\nUser[~] $ ";
+                cout << "\nSelect a sorting algorithm: ";
                 cin >> sortChoice;
-                auto start = chrono::high_resolution_clock::now();
                 switch (sortChoice) {
-                    case 1:
-                        // Quick Sort
+                    case 1: { // Quick Sort
                         cout << "\nUsing Quick Sort to sort..." << endl;
-                        quickSort(&newsBook); // Quick Sort
+                        auto startMem_quicksort = calculateDetailedMemory(newsBook);
+                        auto timeStart_quicksort = chrono::high_resolution_clock::now();
+                        quickSort(&newsBook);
+                        auto timeEnd_quicksort = chrono::high_resolution_clock::now();
+                        auto endMem_quicksort = calculateDetailedMemory(newsBook);
+                        endMem_quicksort.timeElapsed = chrono::duration<double>(timeEnd_quicksort - timeStart_quicksort).count();
+                        displayMemoryStats(endMem_quicksort, "Quick Sort");
                         writeCSV("QuickSort.csv", newsBook);
+                        printList(newsBook);
                         break;
+                    }
 
-                    case 2:
-                        // Merge Sort
-                        cout << "\nUsing Merge Sort to sort..." << endl;
-                        MergeSort(newsBook); // Merge Sort
-                        writeCSV("MergeSort.csv", newsBook);
-                        break;
-
-                    case 3:
-                        // Insertion Sort
+                    case 2: { // Insertion Sort
                         cout << "\nUsing Insertion Sort to sort..." << endl;
-                        insertionSort(newsBook); // Insertion Sort
+                        auto startMem_insertsort = calculateDetailedMemory(newsBook);
+                        auto timeStart_insertsort = chrono::high_resolution_clock::now();
+                        insertionSort(newsBook);
+                        auto timeEnd_insertsort = chrono::high_resolution_clock::now();
+                        auto endMem_insertsort = calculateDetailedMemory(newsBook);
+                        endMem_insertsort.timeElapsed = chrono::duration<double>(timeEnd_insertsort - timeStart_insertsort).count();
+                        displayMemoryStats(endMem_insertsort, "Insertion Sort");
                         writeCSV("InsertionSort.csv", newsBook);
+                        printList(newsBook);
                         break;
+                    }
 
-                    default:
-                        cout << "Invalid choice. Please try again." << endl; break;
+                    default: { cout << "\nInvalid choice. Please try again." << endl; break; }
                 }
-                auto end = chrono::high_resolution_clock::now();
-                chrono::duration<double> elapsed = end - start;
-                cout << "News sorted successfully!" << endl;
-                cout << "Time taken for sorting: " << elapsed.count() << " seconds" << endl;
-                cout << "\nPrint sorted news?" << "\n1. Yes" << "\n2. No" << endl;
-                int printChoice;
-                cout << "\nUser[~] $ ";
-                cin >> printChoice;
-                if (printChoice == 1) printList(newsBook); // Display sorted news
                 break;
             }
 
-            // Calculate total articles using Iterative and recursive methods
+            // Calculate total articles using Iterative methods
             case 2: {
                 if (!newsBook) { cout << "No news articles found." << endl; break; }
-                cout << "Calculating using iterative and recursive methods..." << endl;
-                auto start = chrono::high_resolution_clock::now();
-                calcNews(&newsBook);
-                auto end = chrono::high_resolution_clock::now();
-                chrono::duration<double> elapsed = end - start;
-                cout << "Time taken: " << elapsed.count() << " seconds" << endl;
+                cout << "\nCalculating using iterative methods..." << endl;
+                auto start_calcNews = chrono::high_resolution_clock::now();
+                iterativeCount(newsBook);
+                MemoryStats stats_calcNews = calculateDetailedMemory(newsBook);
+                auto end_calcNews = chrono::high_resolution_clock::now();
+                stats_calcNews.timeElapsed = chrono::duration<double>(end_calcNews - start_calcNews).count();
+                displayMemoryStats(stats_calcNews, "Total Articles Calculation");
                 break;
             }
 
             // Search article by specific criteria
             case 3: { // Linear Search and Binary Search for ques 3
-                cout << "Enter search criteria (year): ";
+                cout << "\nEnter search criteria (year): ";
                 int year;
                 cin >> year;
                 cout << "Searching for year in " << year << " ..." << endl;
 
                 // Linear Search
-                auto start = chrono::high_resolution_clock::now();
-                int result = linearSearch(newsBook, year);
-                auto end = chrono::high_resolution_clock::now();
-                cout << "Total articles found: " << result << endl;
-                chrono::duration<double> elapsed = end - start;
-                cout << "Time taken for linear search: " << elapsed.count() << " seconds" << endl;
+                auto startMem_linSearch = calculateDetailedMemory(newsBook);
+                auto start_linSearch = chrono::high_resolution_clock::now();
+                cout << "\nTotal articles found: " << linearSearch(newsBook, year) << endl;
+                MemoryStats stats_linSearch = calculateDetailedMemory(newsBook);
+                auto end_linSearch = chrono::high_resolution_clock::now();
+                stats_linSearch.timeElapsed = chrono::duration<double>(end_linSearch - start_linSearch).count();
+                displayMemoryStats(stats_linSearch, "Linear Search");
 
                 // Binary Search
-                auto start1 = chrono::high_resolution_clock::now();
-                int result1 = binarySearch(newsBook, year);
-                auto end1 = chrono::high_resolution_clock::now();
-                cout << "Article found: " << result1 << endl;
-                chrono::duration<double> elapsed1 = end1 - start1;
-                cout << "Time taken for binary search: " << elapsed1.count() << " seconds" << endl;
+                auto startMem_binSearch = calculateDetailedMemory(newsBook);
+                auto start_binSearch = chrono::high_resolution_clock::now();
+                cout << "\nArticle found: " << binarySearch(newsBook, year) << endl;
+                MemoryStats stats_binSearch = calculateDetailedMemory(newsBook);
+                auto end_binSearch = chrono::high_resolution_clock::now();
+                stats_binSearch.timeElapsed = chrono::duration<double>(end_binSearch - start_binSearch).count();
+                displayMemoryStats(stats_binSearch, "Binary Search");
                 break;
             }
 
             // Display percentage for fake political news by every month in 2016
             case 4: {
-                cout << "Searching..." << endl;
-                auto start = chrono::high_resolution_clock::now();
+                cout << "\nSearching..." << endl;
+                auto start_disPercent = chrono::high_resolution_clock::now();
                 countPoliticNews(&newsBook);
-                auto end = chrono::high_resolution_clock::now();
-                chrono::duration<double> elapsed = end - start;
-                cout << "Time taken: " << elapsed.count() << " seconds" << endl;
+                MemoryStats stats_disPercent = calculateDetailedMemory(newsBook);
+                auto end_disPercent = chrono::high_resolution_clock::now();
+                stats_disPercent.timeElapsed = chrono::duration<double>(end_disPercent - start_disPercent).count();
+                displayMemoryStats(stats_disPercent, "Political News Analysis");
                 break;
             }
-            default: { cout << "Invalid choice, please try again." << endl; return 0; }
+
+            default: { cout << "Invalid choice, please try again." << endl; }
         }
 
         if (running && choice >= 1 && choice <= 4) {
-            cout << "\nPres Enter to return to menu...";
+            cout << "\nPress Enter to return to menu...\n";
             cin.ignore();   // Ignore newline character
             cin.get();      // Wait for user input
         }
