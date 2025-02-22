@@ -255,116 +255,6 @@ tuple<string, string, string> trimDate(const string& date) {
     return {day, month, year};
 }
 
-// Function to split the singly linked list into two halves
-News *split(News *head) {
-    News *fast = head;
-    News *slow = head;
-
-    // Move fast pointer two steps and slow pointer
-    // one step until fast reaches the end
-    while (fast != nullptr && fast->next != nullptr) {
-        fast = fast -> next -> next;
-        if (fast != nullptr) {
-            slow = slow -> next;
-        }
-    }
-
-    // Split the list into two halves
-    News *temp = slow -> next;
-    slow -> next = nullptr;
-    return temp;
-}
-
-// Function to merge two sorted singly linked lists
-News *merge(News *first, News *second) {
-    // If either list is empty, return the other list
-    if (first == nullptr) return second;
-    if (second == nullptr) return first;
-
-    int day_first, day_second, month_first, month_second, year_first, year_second;
-    try {
-        cout << "Comparing dates: " << first -> date << " and " << second -> date << endl;
-        auto [day1, month1, year1] = trimDate(first -> date);
-        auto [day2, month2, year2] = trimDate(second -> date);
-        year_first = stoi(year1);
-        year_second = stoi(year2);
-        month_first = stoi(month1);
-        month_second = stoi(month2);
-        day_first = stoi(day1);
-        day_second = stoi(day2);
-    } catch (const exception& e) {
-        cerr << e.what() << '\n';
-    }
-    
-    if (year_first < year_second) {
-        // Recursively merge the rest of the lists and
-        // link the result to the current node
-        first -> next = merge(first -> next, second);
-        return first;
-    } else if (year_first == year_second) {
-        if (month_first < month_second) {
-            // Recursively merge the rest of the lists and
-            // link the result to the current node
-            first->next = merge(first->next, second);
-            return first;
-        } else if (month_first == month_second) {
-            if (day_first < day_second) {
-                // Recursively merge the rest of the lists and
-                // link the result to the current node
-                first -> next = merge(first -> next, second);
-                return first;
-            } else {
-                // Recursively merge the rest of the lists
-                // and link the result to the current node
-                second -> next = merge(first, second -> next);
-                return second;
-            }
-        } else {
-            // Recursively merge the rest of the lists
-            // and link the result to the current node
-            second -> next = merge(first, second->next);
-            return second;
-        }
-    } else {
-        // Recursively merge the rest of the lists
-        // and link the result to the current node
-        second -> next = merge(first, second->next);
-        return second;
-    }
-
-    // Pick the smaller value between first and second nodes
-    if (first -> data < second -> data) {
-        // Recursively merge the rest of the lists and
-        // link the result to the current node
-        first -> next = merge(first->next, second);
-        return first;
-    }
-    else {
-        // Recursively merge the rest of the lists
-        // and link the result to the current node
-        second -> next = merge(first, second->next);
-        return second;
-    }
-}
-
-// Function to perform merge sort on a singly linked list
-News *MergeSort(News *head) {
-    // Base case: if the list is empty or has only one node, 
-    // it's already sorted
-    if (head == nullptr || head -> next == nullptr)
-        return head;
-
-    // Split the list into two halves
-    News *second = split(head);
-
-    // Recursively sort each half
-    head = MergeSort(head);
-    second = MergeSort(second);
-
-    // Merge the two sorted halves
-    return merge(head, second);
-}
-
 /**
  * Insertion Sort Function for Linked List
  * @param head The head of the linked list
@@ -679,32 +569,6 @@ void displayMemoryStats(const MemoryStats& stats, const string& operationName) {
     cout << "----------------------------------------" << endl;
 }
 
-/**
- * Write the linked list to a CSV file
- * @param filename The name of the CSV file
- * @param newsBook The linked list of news
- */
-void writeCSV(const string& filename, News* newsBook) {
-    ofstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error opening file: " << filename << endl;
-        return;
-    }
-
-    // Write the data
-    while (newsBook) {
-        file << "\"" << newsBook -> title << "\","
-            << "\"" << newsBook -> text << "\","
-            << "\"" << newsBook -> subject << "\","
-            << "\"" << newsBook -> date << "\","
-            << "\"" << newsBook -> identify << "\"\n";
-        newsBook = newsBook -> next;
-    }
-
-    file.close();
-    cout << "Data written to " << filename << " successfully!" << endl;
-}
-
 int main(int argc, char const *argv[]) {
     News* newsBook = nullptr;
     News* news = new News;
@@ -761,7 +625,6 @@ int main(int argc, char const *argv[]) {
                         auto endMem_quicksort = calculateDetailedMemory(newsBook);
                         endMem_quicksort.timeElapsed = chrono::duration<double>(timeEnd_quicksort - timeStart_quicksort).count();
                         displayMemoryStats(endMem_quicksort, "Quick Sort");
-                        writeCSV("QuickSort.csv", newsBook);
                         printList(newsBook);
                         break;
                     }
@@ -775,7 +638,6 @@ int main(int argc, char const *argv[]) {
                         auto endMem_insertsort = calculateDetailedMemory(newsBook);
                         endMem_insertsort.timeElapsed = chrono::duration<double>(timeEnd_insertsort - timeStart_insertsort).count();
                         displayMemoryStats(endMem_insertsort, "Insertion Sort");
-                        writeCSV("InsertionSort.csv", newsBook);
                         printList(newsBook);
                         break;
                     }

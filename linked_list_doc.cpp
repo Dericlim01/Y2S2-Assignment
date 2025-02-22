@@ -520,29 +520,6 @@ void displayMemoryStats(const MemoryStats& stats, const string& operationName) {
     cout << "----------------------------------------" << endl;
 }
 
-/**
- * Write the linked list to a CSV file
- * @param filename The name of the CSV file
- * @param newsBook The linked list of news
- */
-void writeCSV(const string& filename, News* newsBook) {
-    ofstream file(filename);
-    if (!file.is_open()) { cerr << "Error opening file: " << filename << endl; return; }
-
-    // Write the data
-    while (newsBook) {
-        file << "\"" << newsBook -> title << "\","
-            << "\"" << newsBook -> text << "\","
-            << "\"" << newsBook -> subject << "\","
-            << "\"" << newsBook -> date << "\","
-            << "\"" << newsBook -> identify << "\"\n";
-        newsBook = newsBook -> next;
-    }
-
-    file.close();
-    cout << "Data written to " << filename << " successfully!" << endl;
-}
-
 int main(int argc, char const *argv[]) {
     News* newsBook = nullptr;
     News* news = new News;
@@ -591,7 +568,6 @@ int main(int argc, char const *argv[]) {
                 auto timeEnd_sort = high_resolution_clock::now();
                 stats_sort.timeElapsed = duration<double>(timeEnd_sort - timeStart_sort).count();
                 displayMemoryStats(stats_sort, "Sorting by Year");
-                writeCSV("SortedNews.csv", newsBook);
                 break;
             }
 
