@@ -3,6 +3,8 @@
 #include <sstream>
 #include <cstring>
 #include <chrono>
+#include <windows.h>
+#include <psapi.h>
 
 using namespace std;
 using namespace std::chrono;
@@ -507,13 +509,18 @@ MemoryStats calculateDetailedMemory(News* head) {
  * Display memory statistics in human-readable format
  * @param stats MemoryStats struct containing memory information
  * @param operationName Name of the operation being measured
+ * @param netAllocated Net memory allocated during the operation
  */
-void displayMemoryStats(const MemoryStats& stats, const string& operationName) {
+void displayMemoryStats(const MemoryStats& stats, const string& operationName, size_t netAllocated = 0) {
     cout << "\nMemory Usage for " << operationName << ":" << endl;
     cout << "Structure Size: " << stats.structSize << " B" << endl;
     cout << "String Content: " << stats.stringSize << " B" << endl;
     cout << "Pointer Overhead: " << stats.pointerSize << " B" << endl;
-    cout << "Total Memory: " << stats.totalSize << " B" << endl;
+    //cout << "Total Memory: " << stats.totalSize << " B" << endl;
+    if (netAllocated != 0) {
+        cout << "Net Allocated Memory (Working Set change): " << netAllocated << " B" << endl;
+    }
+
     if (stats.timeElapsed > 0) {
         cout << "Time Elapsed: " << stats.timeElapsed << " seconds" << endl;
     }
@@ -558,61 +565,83 @@ int main(int argc, char const *argv[]) {
             // Sort by year
             case 1: {
                 cout << "\nSorting by year..." << endl;
-                auto startMem_sort = calculateDetailedMemory(newsBook);
-                auto timeStart_sort = high_resolution_clock::now();
-                // Sort by year and display the total number of articles
+                
+                // Get memory usage before the function call
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBefore = pmc.WorkingSetSize;
+                
+                auto timeStart_sort = chrono::high_resolution_clock::now();
                 quickSort(&newsBook);
                 cout << "Done sorting" << endl;
                 iterativeCount(newsBook);
+                auto timeEnd_sort = chrono::high_resolution_clock::now();
+                
+                // Get memory usage after the function call
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfter = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+                
                 MemoryStats stats_sort = calculateDetailedMemory(newsBook);
-                auto timeEnd_sort = high_resolution_clock::now();
                 stats_sort.timeElapsed = duration<double>(timeEnd_sort - timeStart_sort).count();
-                displayMemoryStats(stats_sort, "Sorting by Year");
+                displayMemoryStats(stats_sort, "Sorting by Year", netMemoryUsage);
                 break;
             }
 
             // Percentage of political news article (including fake and true news) from year 2016 are fake
             case 2: {
                 cout << "Calculating political news article..." << endl;
-                auto startMem_calcPol = calculateDetailedMemory(newsBook);
+                
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBefore = pmc.WorkingSetSize;
+                
                 auto timeStart_calcPol = chrono::high_resolution_clock::now();
                 countPoliticNews(&newsBook);
-                MemoryStats stats_calcPol = calculateDetailedMemory(newsBook);
                 auto timeEnd_calcPol = chrono::high_resolution_clock::now();
+                
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfter = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+                
+                MemoryStats stats_calcPol = calculateDetailedMemory(newsBook);
                 stats_calcPol.timeElapsed = chrono::duration<double>(timeEnd_calcPol - timeStart_calcPol).count();
-                displayMemoryStats(stats_calcPol, "Political News Calculation");
+                displayMemoryStats(stats_calcPol, "Political News Calculation", netMemoryUsage);
                 break;
             }
 
             // Most frequently word used in fake news article related to government topics
             case 3: {
-                // Calculate memory statistics for word frequency calculation
-                auto startMem_wordFreq = calculateDetailedMemory(newsBook);
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBefore = pmc.WorkingSetSize;
+                
                 auto timeStart_wordFreq = chrono::high_resolution_clock::now();
 
                 WordList wordList;
                 News* newsPtr = newsBook;
                 while (newsPtr) {
                     string subjectLower;
-                    for (char c : newsPtr -> subject) {
+                    for (char c : newsPtr->subject)
                         subjectLower.push_back(tolower(c));
-                    }
-                    // `
-                    if (newsPtr -> identify =="FAKE" && (subjectLower.find("government") != string::npos)) {
-                        // Convert all text to lowercase
+                    if (newsPtr->identify == "FAKE" && (subjectLower.find("government") != string::npos)) {
                         string titleLower, textLower, subjectLower;
-                        for (char c : newsPtr -> title) {
+                        for (char c : newsPtr->title)
                             titleLower.push_back(tolower(c));
-                        }
-
-                        for (char c : newsPtr -> text) {
+                        for (char c : newsPtr->text)
                             textLower.push_back(tolower(c));
-                        }
-
-                        for (char c : newsPtr -> subject) {
+                        for (char c : newsPtr->subject)
                             subjectLower.push_back(tolower(c));
-                        }
-
                         stringstream ss(titleLower);
                         string word;
                         while (ss >> word) {
@@ -621,8 +650,6 @@ int main(int argc, char const *argv[]) {
                                 wordList.insertOrUpdate(cleaned);
                             }
                         }
-
-                        // Convert text to lowercase and split into words
                         stringstream sss(textLower);
                         while (sss >> word) {
                             string cleaned = cleanWord(word);
@@ -631,16 +658,21 @@ int main(int argc, char const *argv[]) {
                             }
                         }
                     }
-                    newsPtr = newsPtr -> next;
+                    newsPtr = newsPtr->next;
                 }
                 wordList.quickSort_word_freq();
 
-                // Calculate memory statistics for word frequency calculation
-                MemoryStats stats_wordFreq = calculateDetailedMemory(newsBook);
                 auto timeEnd_wordFreq = chrono::high_resolution_clock::now();
+                
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfter = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+
+                MemoryStats stats_wordFreq = calculateDetailedMemory(newsBook);
                 stats_wordFreq.timeElapsed = chrono::duration<double>(timeEnd_wordFreq - timeStart_wordFreq).count();
 
-                // User input to display the top N most frequent words
                 int topCount;
                 cout << "\nEnter the number of most frequent words to display: ";
                 cin >> topCount;
@@ -651,15 +683,14 @@ int main(int argc, char const *argv[]) {
                     int count = 0;
                     WordNode* wordPtr = wordList.head;
                     while (wordPtr && count < topCount) {
-                        cout << count + 1 << ". " << wordPtr -> word << " (" << wordPtr -> frequency << "times)" << endl;
-                        wordPtr = wordPtr -> next;
+                        cout << count + 1 << ". " << wordPtr->word << " (" 
+                            << wordPtr->frequency << " times)" << endl;
+                        wordPtr = wordPtr->next;
                         count++;
                     }
                 }
 
-                // Display memory statistics for word frequency calculation
-                displayMemoryStats(stats_wordFreq, "Word Frequency Calculation");
-
+                displayMemoryStats(stats_wordFreq, "Word Frequency Calculation", netMemoryUsage);
                 break;
             }
 

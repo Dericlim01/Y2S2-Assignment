@@ -5,6 +5,8 @@
 #include <chrono>
 #include <iomanip>
 #include <tuple>
+#include <windows.h>
+#include <psapi.h>
 
 using namespace std;
 
@@ -557,12 +559,15 @@ MemoryStats calculateDetailedMemory(News* head) {
  * @param stats MemoryStats struct containing memory information
  * @param operationName Name of the operation being measured
  */
-void displayMemoryStats(const MemoryStats& stats, const string& operationName) {
+void displayMemoryStats(const MemoryStats& stats, const string& operationName, size_t netMemoryUsage = 0) {
     cout << "\nMemory Usage for " << operationName << ":" << endl;
     cout << "Structure Size: " << stats.structSize << " B" << endl;
     cout << "String Content: " << stats.stringSize << " B" << endl;
     cout << "Pointer Overhead: " << stats.pointerSize << " B" << endl;
-    cout << "Total Memory: " << stats.totalSize << " B" << endl;
+    cout << "Total Memory (calculated): " << stats.totalSize << " B" << endl;
+    if (netMemoryUsage != 0) {
+        cout << "Net Memory Usage (Working Set change): " << netMemoryUsage << " B" << endl;
+    }
     if (stats.timeElapsed > 0) {
         cout << "Time Elapsed: " << stats.timeElapsed << " seconds" << endl;
     }
@@ -616,28 +621,59 @@ int main(int argc, char const *argv[]) {
                 cout << "\nSelect a sorting algorithm: ";
                 cin >> sortChoice;
                 switch (sortChoice) {
-                    case 1: { // Quick Sort
+                    case 1: {
+                        // --- Quick Sort Option ---
                         cout << "\nUsing Quick Sort to sort..." << endl;
-                        auto startMem_quicksort = calculateDetailedMemory(newsBook);
+
+                        // Get working set before sorting
+                        PROCESS_MEMORY_COUNTERS pmc;
+                        if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                            cerr << "Failed to get memory info" << endl;
+                        }
+                        SIZE_T memoryBefore = pmc.WorkingSetSize;
+
                         auto timeStart_quicksort = chrono::high_resolution_clock::now();
                         quickSort(&newsBook);
                         auto timeEnd_quicksort = chrono::high_resolution_clock::now();
+
+                        // Get working set after sorting
+                        if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                            cerr << "Failed to get memory info" << endl;
+                        }
+                        SIZE_T memoryAfter = pmc.WorkingSetSize;
+                        SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+
                         auto endMem_quicksort = calculateDetailedMemory(newsBook);
                         endMem_quicksort.timeElapsed = chrono::duration<double>(timeEnd_quicksort - timeStart_quicksort).count();
-                        displayMemoryStats(endMem_quicksort, "Quick Sort");
+                        displayMemoryStats(endMem_quicksort, "Quick Sort", netMemoryUsage);
                         printList(newsBook);
                         break;
                     }
 
                     case 2: { // Insertion Sort
                         cout << "\nUsing Insertion Sort to sort..." << endl;
-                        auto startMem_insertsort = calculateDetailedMemory(newsBook);
+
+                        // Get working set before Insertion Sort
+                        PROCESS_MEMORY_COUNTERS pmc;
+                        if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                            cerr << "Failed to get memory info" << endl;
+                        }
+                        SIZE_T memoryBefore = pmc.WorkingSetSize;
+
                         auto timeStart_insertsort = chrono::high_resolution_clock::now();
                         insertionSort(newsBook);
                         auto timeEnd_insertsort = chrono::high_resolution_clock::now();
+
+                        // Get working set after Insertion Sort
+                        if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                            cerr << "Failed to get memory info" << endl;
+                        }
+                        SIZE_T memoryAfter = pmc.WorkingSetSize;
+                        SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+
                         auto endMem_insertsort = calculateDetailedMemory(newsBook);
                         endMem_insertsort.timeElapsed = chrono::duration<double>(timeEnd_insertsort - timeStart_insertsort).count();
-                        displayMemoryStats(endMem_insertsort, "Insertion Sort");
+                        displayMemoryStats(endMem_insertsort, "Insertion Sort", netMemoryUsage);
                         printList(newsBook);
                         break;
                     }
@@ -651,12 +687,28 @@ int main(int argc, char const *argv[]) {
             case 2: {
                 if (!newsBook) { cout << "No news articles found." << endl; break; }
                 cout << "\nCalculating using iterative methods..." << endl;
+
+                // Get working set before counting
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBefore = pmc.WorkingSetSize;
+
                 auto start_calcNews = chrono::high_resolution_clock::now();
                 iterativeCount(newsBook);
-                MemoryStats stats_calcNews = calculateDetailedMemory(newsBook);
                 auto end_calcNews = chrono::high_resolution_clock::now();
+
+                // Get working set after counting
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfter = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+
+                MemoryStats stats_calcNews = calculateDetailedMemory(newsBook);
                 stats_calcNews.timeElapsed = chrono::duration<double>(end_calcNews - start_calcNews).count();
-                displayMemoryStats(stats_calcNews, "Total Articles Calculation");
+                displayMemoryStats(stats_calcNews, "Total Articles Calculation", netMemoryUsage);
                 break;
             }
 
@@ -668,34 +720,71 @@ int main(int argc, char const *argv[]) {
                 cout << "Searching for year in " << year << " ..." << endl;
 
                 // Linear Search
-                auto startMem_linSearch = calculateDetailedMemory(newsBook);
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBeforeLin = pmc.WorkingSetSize;
+
                 auto start_linSearch = chrono::high_resolution_clock::now();
                 cout << "\nTotal articles found: " << linearSearch(newsBook, year) << endl;
-                MemoryStats stats_linSearch = calculateDetailedMemory(newsBook);
                 auto end_linSearch = chrono::high_resolution_clock::now();
+
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfterLin = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsageLin = (memoryAfterLin > memoryBeforeLin) ? (memoryAfterLin - memoryBeforeLin) : 0;
+
+                MemoryStats stats_linSearch = calculateDetailedMemory(newsBook);
                 stats_linSearch.timeElapsed = chrono::duration<double>(end_linSearch - start_linSearch).count();
-                displayMemoryStats(stats_linSearch, "Linear Search");
+                displayMemoryStats(stats_linSearch, "Linear Search", netMemoryUsageLin);
 
                 // Binary Search
-                auto startMem_binSearch = calculateDetailedMemory(newsBook);
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBeforeBin = pmc.WorkingSetSize;
+
                 auto start_binSearch = chrono::high_resolution_clock::now();
                 cout << "\nArticle found: " << binarySearch(newsBook, year) << endl;
-                MemoryStats stats_binSearch = calculateDetailedMemory(newsBook);
                 auto end_binSearch = chrono::high_resolution_clock::now();
+
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfterBin = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsageBin = (memoryAfterBin > memoryBeforeBin) ? (memoryAfterBin - memoryBeforeBin) : 0;
+
+                MemoryStats stats_binSearch = calculateDetailedMemory(newsBook);
                 stats_binSearch.timeElapsed = chrono::duration<double>(end_binSearch - start_binSearch).count();
-                displayMemoryStats(stats_binSearch, "Binary Search");
+                displayMemoryStats(stats_binSearch, "Binary Search", netMemoryUsageBin);
                 break;
             }
 
             // Display percentage for fake political news by every month in 2016
             case 4: {
                 cout << "\nSearching..." << endl;
+
+                PROCESS_MEMORY_COUNTERS pmc;
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryBefore = pmc.WorkingSetSize;
+
                 auto start_disPercent = chrono::high_resolution_clock::now();
                 countPoliticNews(&newsBook);
-                MemoryStats stats_disPercent = calculateDetailedMemory(newsBook);
                 auto end_disPercent = chrono::high_resolution_clock::now();
+
+                if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                    cerr << "Failed to get memory info" << endl;
+                }
+                SIZE_T memoryAfter = pmc.WorkingSetSize;
+                SIZE_T netMemoryUsage = (memoryAfter > memoryBefore) ? (memoryAfter - memoryBefore) : 0;
+
+                MemoryStats stats_disPercent = calculateDetailedMemory(newsBook);
                 stats_disPercent.timeElapsed = chrono::duration<double>(end_disPercent - start_disPercent).count();
-                displayMemoryStats(stats_disPercent, "Political News Analysis");
+                displayMemoryStats(stats_disPercent, "Political News Analysis", netMemoryUsage);
                 break;
             }
 
